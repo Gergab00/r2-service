@@ -15,6 +15,7 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "moduleDetection": "force",
+    "types": ["node"],
     "paths": {
       "@config/*": ["./src/config/*"],
       "@errors/*": ["./src/errors/*"],
