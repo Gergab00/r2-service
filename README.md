@@ -76,6 +76,30 @@ pnpm test
 pnpm test:coverage
 ```
 
+### Ejecutar solo tests de R2Service
+
+Los tests unitarios de `R2Service` validan la capa de acceso a Cloudflare R2 de forma aislada, mockeando completamente el cliente S3 para evitar llamadas reales a infraestructura externa.
+
+Objetivo de estos tests:
+
+- Verificar que cada método público del servicio retorne el resultado tipado esperado.
+- Confirmar el mapeo correcto de errores de dominio (`R2NotFoundError`, `R2UploadError`, `R2DeleteError`).
+- Garantizar sanitización de keys y comportamiento correcto de operaciones sobre el bucket.
+
+Qué abarca la suite de `R2Service`:
+
+- `uploadFile`: retorno de `UploadResult`, sanitización de key y manejo de error de subida.
+- `getFile`: retorno de output del SDK y not found cuando el objeto no existe.
+- `deleteFile`: borrado exitoso, not found previo y error de eliminación.
+- `listFiles`: mapeo de archivos listados, prefijos y conteo de resultados.
+- `fileExists`: verificación booleana de existencia ante éxito y error del SDK.
+
+Comando para ejecutar únicamente este archivo de test:
+
+```bash
+pnpm test -- --run test/unit/R2Service.test.ts
+```
+
 ---
 
 ## API
