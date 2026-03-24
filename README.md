@@ -120,6 +120,8 @@ Output esperado en consola al arrancar correctamente:
 | `dev` | `tsx watch src/index.ts` | Arranca en desarrollo con recarga automática. |
 | `build` | `tsc && tsc-alias` | Compila TypeScript a `dist/` y resuelve aliases. |
 | `start` | `node dist/index.js` | Ejecuta la build de producción. |
+| `release` | `semantic-release` | Calcula versión automáticamente, genera `CHANGELOG.md`, crea tag `vX.Y.Z` y release en GitHub. |
+| `release:dry` | `semantic-release --dry-run` | Simula el release sin escribir cambios ni crear tags. |
 | `test` | `vitest` | Ejecuta la suite de pruebas. |
 | `test:coverage` | `vitest --coverage` | Ejecuta tests con reporte de cobertura. |
 | `lint` | `eslint src --ext .ts` | Analiza estilo y reglas de calidad en `src`. |
@@ -145,6 +147,35 @@ Reglas principales del mensaje de commit:
 - Formato: `<type>: <subject>`.
 - Tipos permitidos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
 - Header máximo: 100 caracteres.
+
+## 8.2. Release automático (tag + changelog)
+
+El repositorio usa `semantic-release` para automatizar versionado y changelog.
+
+Flujo configurado:
+
+- Trigger: `push` a rama `master` en GitHub Actions (`.github/workflows/release.yml`).
+- Entrada: historial de commits con formato Conventional Commits.
+- Salida automática:
+	- Calcula siguiente versión semántica.
+	- Genera/actualiza `CHANGELOG.md`.
+	- Crea commit `chore(release): x.y.z`.
+	- Crea tag `vX.Y.Z`.
+	- Publica release en GitHub.
+
+Reglas de versionado usadas por Conventional Commits:
+
+- `fix:` incrementa `patch`.
+- `feat:` incrementa `minor`.
+- `BREAKING CHANGE:` o `!` incrementa `major`.
+
+Para validar localmente sin publicar:
+
+```bash
+pnpm run release:dry
+```
+
+Si ejecutas este comando fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
 
 ## 9. Documentación interactiva (Scalar)
 
@@ -465,7 +496,7 @@ docker-compose up -d
 
 ## 17. Contribución
 
-- Rama principal: `main`.
+- Rama principal: `master`.
 - Flujo: crear rama de trabajo, desarrollar cambios, abrir PR hacia `main`.
 - Conventional Commits requeridos: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`.
 - Antes del PR ejecuta:
