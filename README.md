@@ -124,6 +124,27 @@ Output esperado en consola al arrancar correctamente:
 | `test:coverage` | `vitest --coverage` | Ejecuta tests con reporte de cobertura. |
 | `lint` | `eslint src --ext .ts` | Analiza estilo y reglas de calidad en `src`. |
 | `typecheck` | `tsc --noEmit` | Valida tipos sin generar artefactos. |
+| `prepare` | `husky` | Activa/instala hooks de Git al instalar dependencias. |
+| `commitlint` | `commitlint --edit` | Valida el mensaje de commit contra Conventional Commits. |
+
+## 8.1. Calidad de commits (Husky + Commitlint)
+
+Este repositorio valida commits automáticamente mediante hooks de Git:
+
+- `pre-commit`: ejecuta `pnpm run lint`.
+- `commit-msg`: ejecuta `commitlint` sobre el mensaje del commit.
+
+Si los hooks no están activos localmente, ejecuta:
+
+```bash
+pnpm run prepare
+```
+
+Reglas principales del mensaje de commit:
+
+- Formato: `<type>: <subject>`.
+- Tipos permitidos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- Header máximo: 100 caracteres.
 
 ## 9. Documentación interactiva (Scalar)
 
