@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { Scalar } from '@scalar/hono-api-reference';
 
-import { openApiComponents, openApiSpec } from '../config/openapi.js';
+import { openApiComponents, openApiPaths, openApiSpec } from '../config/openapi.js';
 
 // ─── Private helpers ───────────────────────────────────────────────────────────
 
@@ -110,6 +110,8 @@ function buildPaths(): Record<string, unknown> {
         },
       },
     },
+
+    ...openApiPaths,
 
     '/api/v1/files/{key}': {
       post: {
