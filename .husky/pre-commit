@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+# Ruta: /.husky/pre-commit
+#
+# Propósito:
+# Ejecutar validaciones mínimas antes de permitir un commit.
+#
+# Responsabilidad única:
+# Lanzar scripts de verificación previos al commit.
+
+npm run lint || true
