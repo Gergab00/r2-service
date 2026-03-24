@@ -8,4 +8,4 @@
 # Responsabilidad única:
 # Lanzar scripts de verificación previos al commit.
 
-npm run lint || true
+pnpm run lint

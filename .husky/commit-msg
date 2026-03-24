@@ -8,4 +8,4 @@
 # Responsabilidad única:
 # Ejecutar commitlint sobre el mensaje recibido por Git.
 
-npx --no -- commitlint --edit "$1"
+pnpm exec commitlint --edit "$1"
