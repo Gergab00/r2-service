@@ -454,8 +454,11 @@ r2-service/
 └── test/
 		├── config/                        # Espacio reservado para tests de configuración.
 		├── errors/                        # Espacio reservado para tests de errores.
+		├── integration/                   # Tests de integración HTTP sobre el pipeline real de Hono.
+		│   	└── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
 		└── unit/
-				└── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
+				├── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
+				└── RemoteFileFetcherService.test.ts # Tests unitarios del descargador remoto con DNS/fetch mockeados.
 ```
 
 ## 12. Convenciones de código
@@ -469,7 +472,7 @@ r2-service/
 
 ## 13. 🧪 Testing
 
-Ejecutar tests:
+Ejecutar toda la suite:
 
 ```bash
 pnpm test
@@ -481,15 +484,50 @@ Ver cobertura:
 pnpm test:coverage
 ```
 
-Cobertura actual de suites:
+Suites actuales:
 
-- `test/unit/R2Service.test.ts`: valida `uploadFile`, `getFile`, `deleteFile`, `listFiles` y `fileExists`.
-- `test/config/`: carpeta preparada para pruebas de validación/configuración.
-- `test/errors/`: carpeta preparada para pruebas de mapeo de errores de dominio.
+- `test/unit/R2Service.test.ts`
+	- Componente probado: `R2Service`, encargado del CRUD sobre Cloudflare R2 mediante AWS S3 SDK v3.
+	- Comportamiento crítico que protege: que el servicio sanee claves y prefijos, traduzca fallos esperados del SDK a errores de dominio y construya respuestas consistentes sin depender de R2 real.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME` y `R2_PUBLIC_URL`.
+	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, ausencia de `R2_PUBLIC_URL`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, ausencia de URL pública, existencia positiva, inexistencia y sanitización en `fileExists`.
+	- Garantías de seguridad de la suite: evita regresiones en sanitización contra path traversal para `key` y `prefix`, y asegura que los errores expuestos al resto del servicio sigan siendo errores de dominio controlados en lugar de filtrar fallos crudos del SDK.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/R2Service.test.ts
+```
+
+- `test/unit/RemoteFileFetcherService.test.ts`
+	- Componente probado: `RemoteFileFetcherService`, responsable de descargar recursos remotos con allowlist, validación DNS anti-SSRF, control manual de redirects y validaciones de MIME y tamaño.
+	- Comportamiento crítico que protege: que ninguna relajación en allowlist, bloqueo de IPs privadas, tipo MIME permitido, límite de bytes o validación de redirects pase inadvertida.
+	- Dependencias aisladas con mocks: `node:dns/promises` para controlar resoluciones DNS, `fetch` global para simular respuestas remotas y `@config/env.js` para fijar hosts permitidos, MIME aceptados, tamaño máximo, timeout y máximo de redirects.
+	- Escenarios cubiertos: host fuera de allowlist, hostname permitido que resuelve a IP privada, respuesta con MIME inválido, body que supera el tamaño máximo, redirect hacia host no permitido y descarga exitosa con `buffer`, `contentType`, `finalUrl` y `size`.
+	- Garantías de seguridad de la suite: endurece la defensa SSRF validando hostname y resolución DNS antes de descargar, impide aceptar contenido remoto fuera de política y garantiza que el límite de tamaño siga aplicándose incluso durante la lectura del body.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/RemoteFileFetcherService.test.ts
+```
+
+- `test/integration/import-from-url.routes.test.ts`
+	- Componente probado: el contrato HTTP de `POST /api/v1/files/import-from-url` montado sobre el `app` real de Hono en `src/routes/index.ts`, incluyendo `files.routes`, `authMiddleware` y `errorMiddleware`.
+	- Comportamiento crítico que protege: que el endpoint responda de forma consistente con `201`, `400` y `401` dentro del pipeline real de rutas y middleware, sin saltarse autenticación, parseo JSON ni manejo centralizado de errores.
+	- Dependencias aisladas con mocks: `@config/env.js` para fijar API key y configuración requerida por el arranque del pipeline, e `ImportFileFromUrlUseCase` para evitar descargas remotas y subidas reales a R2.
+	- Escenarios cubiertos: importación exitosa con body válido, rechazo de body con JSON inválido y rechazo por ausencia del header `x-api-key`.
+	- Garantías de seguridad de la suite: asegura que el endpoint siga exigiendo autenticación antes de tocar el caso de uso, que los errores de entrada inválida se traduzcan a `400` controlado y que ninguna prueba necesite red real ni almacenamiento externo para validar el contrato HTTP.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/integration/import-from-url.routes.test.ts
+```
+
+- `test/config/`: carpeta preparada para futuras pruebas de validación y configuración.
+- `test/errors/`: carpeta preparada para futuras pruebas de mapeo de errores de dominio.
 
 Nota de aislamiento:
 
-- Los tests no llaman a R2 real; la interacción con SDK se mockea con `vi.mock`.
+- Ninguna suite usa red real ni R2 real; todas las dependencias externas se aíslan con `vi.mock` o `vi.stubGlobal`, incluso en integración HTTP cuando se prueba el pipeline real con `app.request`.
 
 ## 14. 🐳 Despliegue con Docker
 
