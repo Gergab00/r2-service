@@ -163,11 +163,36 @@ Flujo configurado:
 	- Crea tag `vX.Y.Z`.
 	- Publica release en GitHub.
 
-Reglas de versionado usadas por Conventional Commits:
+### Versionado semántico
 
-- `fix:` incrementa `patch`.
-- `feat:` incrementa `minor`.
-- `BREAKING CHANGE:` o `!` incrementa `major`.
+El versionado es **automático** basado en los tipos de commit Conventional Commits. La versión comienza en `1.0.0` y se incrementa según:
+
+| Tipo de commit | Incrementa | Ejemplo | Resultado |
+|:---|:---|:---|:---|
+| `fix: ...` | PATCH | `fix(r2): corrige error al borrar archivo` | `1.0.0` → `1.0.1` |
+| `feat: ...` | MINOR | `feat(api): agrega endpoint de descarga` | `1.0.0` → `1.1.0` |
+| `BREAKING CHANGE` | MAJOR | `feat(api)!: rediseña formato de respuesta` | `1.0.0` → `2.0.0` |
+
+**Ejemplos de commits para cada tipo de versión:**
+
+Patch (1.0.0 → 1.0.1):
+```
+fix(auth): corrige validación de API Key
+```
+
+Minor (1.0.0 → 1.1.0):
+```
+feat(api): agrega soporte para presigned URLs
+```
+
+Major (1.0.0 → 2.0.0):
+```
+feat(api)!: cambia estructura de respuesta del upload
+
+BREAKING CHANGE: el endpoint POST /files/:key ahora retorna {success, data} en lugar de {uploaded, metadata}
+```
+
+### Scripts de release
 
 Para validar localmente sin publicar:
 
@@ -175,7 +200,13 @@ Para validar localmente sin publicar:
 pnpm run release:dry
 ```
 
-Si ejecutas este comando fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
+Para ejecutar release manualmente con versión específica (avanzado):
+
+```bash
+pnpm run release -- --release-as 2.0.0
+```
+
+> ⚠️ Si ejecutas `release:dry` fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
 
 ## 9. Documentación interactiva (Scalar)
 
