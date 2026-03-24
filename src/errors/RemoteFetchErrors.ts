@@ -36,7 +36,7 @@ export class RemoteFetchSsrfError extends AppError {
  */
 export class RemoteFetchMimeTypeNotAllowedError extends AppError {
   public constructor(mimeType: string) {
-    super(`El tipo MIME '${mimeType}' no está permitido en la importación remota.`, 422, 'REMOTE_FETCH_MIME_NOT_ALLOWED');
+    super(`El tipo MIME '${mimeType}' no está permitido en la importación remota.`, 415, 'REMOTE_FETCH_MIME_NOT_ALLOWED');
   }
 }
 
