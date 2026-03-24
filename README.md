@@ -64,6 +64,23 @@ pnpm build
 pnpm start
 ```
 
+### API Key del microservicio
+
+Este servicio protege todos sus endpoints con el header `x-api-key`.
+La clave debe coincidir con el valor de `API_KEY` definido en el archivo `.env`.
+
+Puedes generar una clave segura con:
+
+```bash
+pnpm run generate:api-key
+```
+
+Ejemplo de uso en una petición:
+
+```bash
+curl -H "x-api-key: TU_API_KEY" http://localhost:3000/files
+```
+
 ---
 
 ## Testing
