@@ -59,6 +59,11 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `PORT` | Puerto HTTP del servicio. | No | `3000` | `3000` |
 | `NODE_ENV` | Entorno de ejecución (`development`, `production`, `test`). | No | `development` | `development` |
 | `API_KEY` | Clave usada por el header `x-api-key` (mínimo 32 chars). | Sí | No | `4f7f6f6d1c...` |
+| `REMOTE_FETCH_ALLOWED_HOSTS` | Hosts remotos permitidos para descarga, separados por coma. | Sí | No | `images-na.ssl-images-amazon.com,m.media-amazon.com` |
+| `REMOTE_FETCH_ALLOWED_MIME_TYPES` | MIME types aceptados en la respuesta remota, separados por coma. | Sí | No | `image/jpeg,image/png,image/webp` |
+| `REMOTE_FETCH_MAX_BYTES` | Tamaño máximo en bytes del archivo remoto descargado. | Sí | No | `5242880` (5 MB) |
+| `REMOTE_FETCH_TIMEOUT_MS` | Tiempo máximo en ms para la petición HTTP remota. | Sí | No | `10000` (10 s) |
+| `REMOTE_FETCH_MAX_REDIRECTS` | Número máximo de redirecciones HTTP permitidas. | Sí | No | `3` |
 
 Genera una API Key segura con Node.js:
 

@@ -9,6 +9,11 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   API_KEY: z.string().min(32),
+  REMOTE_FETCH_ALLOWED_HOSTS: z.string().min(1),
+  REMOTE_FETCH_ALLOWED_MIME_TYPES: z.string().min(1),
+  REMOTE_FETCH_MAX_BYTES: z.coerce.number().int().positive(),
+  REMOTE_FETCH_TIMEOUT_MS: z.coerce.number().int().positive(),
+  REMOTE_FETCH_MAX_REDIRECTS: z.coerce.number().int().nonnegative(),
 });
 
 export type Env = z.infer<typeof envSchema>;
