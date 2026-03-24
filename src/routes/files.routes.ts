@@ -1,14 +1,17 @@
 import { type Context, Hono } from 'hono';
 import type { GetObjectCommandOutput } from '@aws-sdk/client-s3';
 
+import { ValidationError } from '../errors/index.js';
 import {
   deleteKeySchema,
   downloadKeySchema,
+  importFromUrlBodySchema,
   listQuerySchema,
   uploadKeySchema,
   uploadQuerySchema,
   type DeleteKeyInput,
   type DownloadKeyInput,
+  type ImportFromUrlBodyInput,
   type ListQueryInput,
   type UploadKeyInput,
   type UploadQueryInput,
@@ -19,6 +22,10 @@ import {
   type ListResult,
   type UploadResult,
 } from '../services/R2Service.js';
+import {
+  importFileFromUrlUseCase,
+  type ImportFileFromUrlResult,
+} from '../use-cases/ImportFileFromUrlUseCase.js';
 
 type SuccessResponse<TData> = {
   success: true;
@@ -27,6 +34,16 @@ type SuccessResponse<TData> = {
 };
 
 const filesRoutes: Hono = new Hono();
+
+const parseJsonBody = async <TBody>(c: Context): Promise<TBody> => {
+  try {
+    return (await c.req.json()) as TBody;
+  } catch {
+    throw new ValidationError({
+      body: ['El body de la solicitud debe ser un JSON válido.'],
+    });
+  }
+};
 
 /**
  * POST /files/:key
@@ -44,6 +61,26 @@ const uploadFileHandler = async (c: Context): Promise<Response> => {
   const response: SuccessResponse<UploadResult> = {
     success: true,
     data: uploadResult,
+    timestamp: new Date().toISOString(),
+  };
+
+  return c.json(response, 201);
+};
+
+/**
+ * POST /files/import-from-url
+ *
+ * Valida el body JSON, delega la descarga y subida al caso de uso y responde
+ * con la metadata tipada del archivo importado.
+ */
+const importFileFromUrlHandler = async (c: Context): Promise<Response> => {
+  const rawBody: unknown = await parseJsonBody<unknown>(c);
+  const body: ImportFromUrlBodyInput = importFromUrlBodySchema.parse(rawBody);
+  const importResult: ImportFileFromUrlResult = await importFileFromUrlUseCase.execute(body);
+
+  const response: SuccessResponse<ImportFileFromUrlResult> = {
+    success: true,
+    data: importResult,
     timestamp: new Date().toISOString(),
   };
 
@@ -111,6 +148,7 @@ const listFilesHandler = async (c: Context): Promise<Response> => {
   return c.json(response, 200);
 };
 
+filesRoutes.post('/files/import-from-url', importFileFromUrlHandler);
 filesRoutes.post('/files/:key', uploadFileHandler);
 filesRoutes.get('/files/:key', downloadFileHandler);
 filesRoutes.delete('/files/:key', deleteFileHandler);
