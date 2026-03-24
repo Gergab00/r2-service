@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+# Ruta: /.husky/commit-msg
+#
+# Propósito:
+# Validar automáticamente el mensaje del commit antes de confirmarlo.
+#
+# Responsabilidad única:
+# Ejecutar commitlint sobre el mensaje recibido por Git.
+
+npx --no -- commitlint --edit "$1"
