@@ -6,6 +6,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+**[📋 Changelog](CHANGELOG.md)** • [Releases](../../releases) • [Issues](../../issues)
+
 Microservicio HTTP para gestionar archivos en Cloudflare R2 mediante una API REST segura con API Key.
 
 r2-service es un servicio especializado que centraliza el CRUD de objetos en un bucket R2 para evitar que otras piezas del sistema hablen directo con el storage. Su responsabilidad única es exponer endpoints de subida, descarga, borrado y listado de archivos, validando entradas y estandarizando errores de dominio. Este servicio no accede a base de datos, no conoce otros servicios y no procesa imágenes.
@@ -158,7 +160,7 @@ Flujo configurado:
 - Entrada: historial de commits con formato Conventional Commits.
 - Salida automática:
 	- Calcula siguiente versión semántica.
-	- Genera/actualiza `CHANGELOG.md`.
+	- Genera/actualiza [`CHANGELOG.md`](CHANGELOG.md).
 	- Crea commit `chore(release): x.y.z`.
 	- Crea tag `vX.Y.Z`.
 	- Publica release en GitHub.
