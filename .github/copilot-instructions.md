@@ -95,12 +95,17 @@ const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET_NAME: z.string().min(1),
-  R2_PUBLIC_URL: z.url().optional(),
-  PORT: z.coerce.number().default(3000),
+  R2_PUBLIC_URL: z.string().url().optional(),
+  PORT: z.coerce.number().int().positive().default(3000),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  API_KEY: z.string().min(32),
 });
 
 export const env = envSchema.parse(process.env);
 ```
+
+- Mantener `.env.example` sincronizado con `src/config/env.ts`.
+- No documentar ni usar variables que no existan en runtime (por ejemplo `DOCS_ENABLED` o `CF_API_TOKEN`).
 
 ---
 
@@ -220,10 +225,10 @@ export const r2Client = new S3Client({
 
 | Método | Ruta             | Descripción                         |
 |--------|------------------|-------------------------------------|
-| POST   | `/files/:key`    | Sube un archivo                     |
-| GET    | `/files/:key`    | Descarga un archivo                 |
-| DELETE | `/files/:key`    | Elimina un archivo                  |
-| GET    | `/files`         | Lista archivos (query: `prefix`)    |
+| POST   | `/api/v1/files/:key` | Sube un archivo                |
+| GET    | `/api/v1/files/:key`  | Descarga un archivo            |
+| DELETE | `/api/v1/files/:key`  | Elimina un archivo             |
+| GET    | `/api/v1/files`       | Lista archivos (query: `prefix`) |
 
 - Las rutas **no contienen lógica de negocio**.
 - Retornar siempre respuestas con `Content-Type` explícito.
@@ -235,6 +240,9 @@ export const r2Client = new S3Client({
 
 - Documentar **todas** las funciones y métodos públicos con **JSDoc**.
 - Incluir `@param`, `@returns` y `@throws` cuando aplique.
+- Mantener `README.md` como documentación principal operativa del servicio.
+- En cada cambio importante (nuevos endpoints, variables de entorno, scripts, seguridad o flujo de arranque), actualizar `README.md` en el mismo trabajo.
+- Verificar siempre consistencia entre `README.md`, `.env.example`, `package.json`, `src/config/env.ts` y `src/routes/`.
 
 ```typescript
 /**
