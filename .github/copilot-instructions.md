@@ -242,6 +242,8 @@ export const r2Client = new S3Client({
 - Incluir `@param`, `@returns` y `@throws` cuando aplique.
 - Mantener `README.md` como documentación principal operativa del servicio.
 - En cada cambio importante (nuevos endpoints, variables de entorno, scripts, seguridad o flujo de arranque), actualizar `README.md` en el mismo trabajo.
+- Cada vez que se cree o modifique una suite de tests, actualizar la sección de testing de `README.md` en el mismo cambio.
+- La documentación de cada suite de tests en `README.md` debe incluir siempre: qué componente se prueba, qué comportamiento crítico protege, qué dependencias se aíslan con mocks, qué escenarios cubre, qué garantías de seguridad da esa suite y el comando individual para ejecutarla.
 - Verificar siempre consistencia entre `README.md`, `.env.example`, `package.json`, `src/config/env.ts` y `src/routes/`.
 
 ```typescript
@@ -264,6 +266,8 @@ async uploadFile(key: string, body: Buffer, contentType: string): Promise<Upload
 - Cada service, middleware y helper tiene su propio archivo de test.
 - Los tests de `R2Service` mockan el cliente S3; nunca llaman a R2 real.
 - Usar `vi.mock()` para aislar dependencias externas.
+- Los tests de integración HTTP deben ejercitar el pipeline real de rutas y middleware con `app.request`, pero siempre con dependencias externas stubbeadas o mockeadas.
+- Cuando se agregue un archivo nuevo en `test/`, documentarlo en `README.md` con el formato obligatorio definido en la sección de documentación.
 - Nombrar los tests con el patrón: `describe('R2Service') > it('debe subir el archivo correctamente')`.
 
 ```typescript
