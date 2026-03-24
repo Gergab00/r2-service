@@ -6,6 +6,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+**[📋 Changelog](CHANGELOG.md)** • [Releases](../../releases) • [Issues](../../issues)
+
 Microservicio HTTP para gestionar archivos en Cloudflare R2 mediante una API REST segura con API Key.
 
 r2-service es un servicio especializado que centraliza el CRUD de objetos en un bucket R2 para evitar que otras piezas del sistema hablen directo con el storage. Su responsabilidad única es exponer endpoints de subida, descarga, borrado y listado de archivos, validando entradas y estandarizando errores de dominio. Este servicio no accede a base de datos, no conoce otros servicios y no procesa imágenes.
@@ -158,16 +160,41 @@ Flujo configurado:
 - Entrada: historial de commits con formato Conventional Commits.
 - Salida automática:
 	- Calcula siguiente versión semántica.
-	- Genera/actualiza `CHANGELOG.md`.
+	- Genera/actualiza [`CHANGELOG.md`](CHANGELOG.md).
 	- Crea commit `chore(release): x.y.z`.
 	- Crea tag `vX.Y.Z`.
 	- Publica release en GitHub.
 
-Reglas de versionado usadas por Conventional Commits:
+### Versionado semántico
 
-- `fix:` incrementa `patch`.
-- `feat:` incrementa `minor`.
-- `BREAKING CHANGE:` o `!` incrementa `major`.
+El versionado es **automático** basado en los tipos de commit Conventional Commits. La versión comienza en `1.0.0` y se incrementa según:
+
+| Tipo de commit | Incrementa | Ejemplo | Resultado |
+|:---|:---|:---|:---|
+| `fix: ...` | PATCH | `fix(r2): corrige error al borrar archivo` | `1.0.0` → `1.0.1` |
+| `feat: ...` | MINOR | `feat(api): agrega endpoint de descarga` | `1.0.0` → `1.1.0` |
+| `BREAKING CHANGE` | MAJOR | `feat(api)!: rediseña formato de respuesta` | `1.0.0` → `2.0.0` |
+
+**Ejemplos de commits para cada tipo de versión:**
+
+Patch (1.0.0 → 1.0.1):
+```
+fix(auth): corrige validación de API Key
+```
+
+Minor (1.0.0 → 1.1.0):
+```
+feat(api): agrega soporte para presigned URLs
+```
+
+Major (1.0.0 → 2.0.0):
+```
+feat(api)!: cambia estructura de respuesta del upload
+
+BREAKING CHANGE: el endpoint POST /files/:key ahora retorna {success, data} en lugar de {uploaded, metadata}
+```
+
+### Scripts de release
 
 Para validar localmente sin publicar:
 
@@ -175,7 +202,13 @@ Para validar localmente sin publicar:
 pnpm run release:dry
 ```
 
-Si ejecutas este comando fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
+Para ejecutar release manualmente con versión específica (avanzado):
+
+```bash
+pnpm run release -- --release-as 2.0.0
+```
+
+> ⚠️ Si ejecutas `release:dry` fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
 
 ## 9. Documentación interactiva (Scalar)
 
