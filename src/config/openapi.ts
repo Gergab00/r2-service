@@ -54,6 +54,81 @@ export const openApiSpec = {
  */
 export const openApiComponents = {
   schemas: {
+    ErrorResponse: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        code: {
+          type: 'string',
+          example: 'UNAUTHORIZED',
+        },
+        message: {
+          type: 'string',
+          example: 'API key invalida o ausente.',
+        },
+        timestamp: {
+          type: 'string',
+          format: 'date-time',
+          example: '2026-03-23T14:25:00.000Z',
+        },
+      },
+      required: ['code', 'message', 'timestamp'],
+    },
+
+    ValidationErrorResponse: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        code: {
+          type: 'string',
+          example: 'VALIDATION_ERROR',
+        },
+        message: {
+          type: 'string',
+          example: 'La solicitud contiene datos inválidos.',
+        },
+        details: {
+          type: 'object',
+          additionalProperties: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+          example: {
+            body: ['El body de la solicitud debe ser un JSON válido.'],
+            url: ['El campo url debe ser una URL válida.'],
+          },
+        },
+        timestamp: {
+          type: 'string',
+          format: 'date-time',
+          example: '2026-03-23T14:27:00.000Z',
+        },
+      },
+      required: ['code', 'message', 'details', 'timestamp'],
+    },
+
+    ImportFromUrlRequest: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        url: {
+          type: 'string',
+          format: 'uri',
+          example: 'https://images-na.ssl-images-amazon.com/images/I/71abc12345L._AC_SL1500_.jpg',
+        },
+        key: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 512,
+          pattern: '^[A-Za-z0-9/_.-]+$',
+          example: 'productos/B08N5W/importada.jpg',
+        },
+      },
+      required: ['url', 'key'],
+    },
+
     UploadResponse: {
       type: 'object',
       additionalProperties: false,
@@ -208,24 +283,7 @@ export const openApiComponents = {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              code: {
-                type: 'string',
-                example: 'UNAUTHORIZED',
-              },
-              message: {
-                type: 'string',
-                example: 'API key invalida o ausente.',
-              },
-              timestamp: {
-                type: 'string',
-                format: 'date-time',
-                example: '2026-03-23T14:25:00.000Z',
-              },
-            },
-            required: ['code', 'message'],
+            $ref: '#/components/schemas/ErrorResponse',
           },
         },
       },
@@ -236,24 +294,22 @@ export const openApiComponents = {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              code: {
-                type: 'string',
-                example: 'R2_NOT_FOUND',
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    example: 'R2_NOT_FOUND',
+                  },
+                  message: {
+                    type: 'string',
+                    example: "El archivo 'productos/B08N5W/principal.jpg' no existe en R2.",
+                  },
+                },
               },
-              message: {
-                type: 'string',
-                example: "El archivo 'productos/B08N5W/principal.jpg' no existe en R2.",
-              },
-              timestamp: {
-                type: 'string',
-                format: 'date-time',
-                example: '2026-03-23T14:26:00.000Z',
-              },
-            },
-            required: ['code', 'message'],
+            ],
           },
         },
       },
@@ -264,32 +320,112 @@ export const openApiComponents = {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              code: {
-                type: 'string',
-                example: 'VALIDATION_ERROR',
-              },
-              message: {
-                type: 'string',
-                example: 'Parametros invalidos en la solicitud.',
-              },
-              details: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                  example: 'key: debe contener al menos 1 caracter.',
+            $ref: '#/components/schemas/ValidationErrorResponse',
+          },
+        },
+      },
+    },
+
+    RemoteFetchForbidden: {
+      description: 'The remote URL is not allowed or was blocked by SSRF protection.',
+      content: {
+        'application/json': {
+          schema: {
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    enum: ['REMOTE_FETCH_HOST_NOT_ALLOWED', 'REMOTE_FETCH_SSRF_BLOCKED'],
+                    example: 'REMOTE_FETCH_HOST_NOT_ALLOWED',
+                  },
+                  message: {
+                    type: 'string',
+                    example: "El host 'example.com' no está permitido para importación remota.",
+                  },
                 },
-                example: ['key: debe contener al menos 1 caracter.'],
               },
-              timestamp: {
-                type: 'string',
-                format: 'date-time',
-                example: '2026-03-23T14:27:00.000Z',
+            ],
+          },
+        },
+      },
+    },
+
+    RemoteFetchPayloadTooLarge: {
+      description: 'The remote file exceeds the configured maximum allowed size.',
+      content: {
+        'application/json': {
+          schema: {
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    example: 'REMOTE_FETCH_SIZE_EXCEEDED',
+                  },
+                  message: {
+                    type: 'string',
+                    example: 'El archivo remoto supera el tamaño máximo permitido de 5242880 bytes.',
+                  },
+                },
               },
-            },
-            required: ['code', 'message', 'details'],
+            ],
+          },
+        },
+      },
+    },
+
+    RemoteFetchUnsupportedMediaType: {
+      description: 'The remote file has a MIME type that is not allowed.',
+      content: {
+        'application/json': {
+          schema: {
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    example: 'REMOTE_FETCH_MIME_NOT_ALLOWED',
+                  },
+                  message: {
+                    type: 'string',
+                    example: "El tipo MIME 'image/avif' no está permitido en la importación remota.",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+
+    RemoteFetchBadGateway: {
+      description: 'The remote resource could not be downloaded successfully.',
+      content: {
+        'application/json': {
+          schema: {
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    example: 'REMOTE_FETCH_DOWNLOAD_FAILED',
+                  },
+                  message: {
+                    type: 'string',
+                    example: "No se pudo descargar el recurso remoto desde 'https://images-na.ssl-images-amazon.com/example.jpg'.",
+                  },
+                },
+              },
+            ],
           },
         },
       },
@@ -300,26 +436,70 @@ export const openApiComponents = {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              code: {
-                type: 'string',
-                example: 'INTERNAL_ERROR',
+            allOf: [
+              { $ref: '#/components/schemas/ErrorResponse' },
+              {
+                type: 'object',
+                properties: {
+                  code: {
+                    type: 'string',
+                    example: 'INTERNAL_ERROR',
+                  },
+                  message: {
+                    type: 'string',
+                    example: 'Error interno del servidor.',
+                  },
+                },
               },
-              message: {
-                type: 'string',
-                example: 'Error interno del servidor.',
-              },
-              timestamp: {
-                type: 'string',
-                format: 'date-time',
-                example: '2026-03-23T14:28:00.000Z',
-              },
-            },
-            required: ['code', 'message'],
+            ],
           },
         },
+      },
+    },
+  },
+} as const;
+
+export const openApiPaths = {
+  '/api/v1/files/import-from-url': {
+    post: {
+      operationId: 'importFileFromUrl',
+      summary: 'Import file from URL',
+      description:
+        'Downloads an allowed remote image and uploads it into the configured R2 bucket under the provided key.',
+      tags: ['Archivos'],
+      requestBody: {
+        required: true,
+        description: 'JSON body with the remote URL and destination key in R2.',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ImportFromUrlRequest' },
+            examples: {
+              default: {
+                summary: 'Importar imagen remota',
+                value: {
+                  url: 'https://images-na.ssl-images-amazon.com/images/I/71abc12345L._AC_SL1500_.jpg',
+                  key: 'productos/B08N5W/importada.jpg',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '201': {
+          description: 'Remote image imported and uploaded successfully.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UploadResponse' },
+            },
+          },
+        },
+        '400': { $ref: '#/components/responses/ValidationError' },
+        '401': { $ref: '#/components/responses/Unauthorized' },
+        '403': { $ref: '#/components/responses/RemoteFetchForbidden' },
+        '413': { $ref: '#/components/responses/RemoteFetchPayloadTooLarge' },
+        '415': { $ref: '#/components/responses/RemoteFetchUnsupportedMediaType' },
+        '502': { $ref: '#/components/responses/RemoteFetchBadGateway' },
       },
     },
   },

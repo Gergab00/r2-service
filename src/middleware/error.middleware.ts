@@ -1,7 +1,7 @@
 import type { Context, ErrorHandler } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { ZodError } from 'zod';
-import { AppError } from '../errors/index.js';
+import { AppError, ValidationError } from '../errors/index.js';
 
 /**
  * Maneja errores HTTP de forma centralizada para evitar exponer detalles
@@ -12,6 +12,18 @@ export const errorMiddleware: ErrorHandler = (
   c: Context,
 ): Response => {
   const timestamp: string = new Date().toISOString();
+
+  if (error instanceof ValidationError) {
+    return c.json(
+      {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp,
+      },
+      400,
+    );
+  }
 
   if (error instanceof AppError) {
     const statusCode: ContentfulStatusCode = error.statusCode as ContentfulStatusCode;

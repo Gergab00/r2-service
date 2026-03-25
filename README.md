@@ -6,6 +6,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+**[📋 Changelog](CHANGELOG.md)** • [Releases](../../releases) • [Issues](../../issues)
+
 Microservicio HTTP para gestionar archivos en Cloudflare R2 mediante una API REST segura con API Key.
 
 r2-service es un servicio especializado que centraliza el CRUD de objetos en un bucket R2 para evitar que otras piezas del sistema hablen directo con el storage. Su responsabilidad única es exponer endpoints de subida, descarga, borrado y listado de archivos, validando entradas y estandarizando errores de dominio. Este servicio no accede a base de datos, no conoce otros servicios y no procesa imágenes.
@@ -57,6 +59,11 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `PORT` | Puerto HTTP del servicio. | No | `3000` | `3000` |
 | `NODE_ENV` | Entorno de ejecución (`development`, `production`, `test`). | No | `development` | `development` |
 | `API_KEY` | Clave usada por el header `x-api-key` (mínimo 32 chars). | Sí | No | `4f7f6f6d1c...` |
+| `REMOTE_FETCH_ALLOWED_HOSTS` | Hosts remotos permitidos para descarga, separados por coma. | Sí | No | `images-na.ssl-images-amazon.com,m.media-amazon.com` |
+| `REMOTE_FETCH_ALLOWED_MIME_TYPES` | MIME types aceptados en la respuesta remota, separados por coma. | Sí | No | `image/jpeg,image/png,image/webp` |
+| `REMOTE_FETCH_MAX_BYTES` | Tamaño máximo en bytes del archivo remoto descargado. | Sí | No | `5242880` (5 MB) |
+| `REMOTE_FETCH_TIMEOUT_MS` | Tiempo máximo en ms para la petición HTTP remota. | Sí | No | `10000` (10 s) |
+| `REMOTE_FETCH_MAX_REDIRECTS` | Número máximo de redirecciones HTTP permitidas. | Sí | No | `3` |
 
 Genera una API Key segura con Node.js:
 
@@ -158,16 +165,41 @@ Flujo configurado:
 - Entrada: historial de commits con formato Conventional Commits.
 - Salida automática:
 	- Calcula siguiente versión semántica.
-	- Genera/actualiza `CHANGELOG.md`.
+	- Genera/actualiza [`CHANGELOG.md`](CHANGELOG.md).
 	- Crea commit `chore(release): x.y.z`.
 	- Crea tag `vX.Y.Z`.
 	- Publica release en GitHub.
 
-Reglas de versionado usadas por Conventional Commits:
+### Versionado semántico
 
-- `fix:` incrementa `patch`.
-- `feat:` incrementa `minor`.
-- `BREAKING CHANGE:` o `!` incrementa `major`.
+El versionado es **automático** basado en los tipos de commit Conventional Commits. La versión comienza en `1.0.0` y se incrementa según:
+
+| Tipo de commit | Incrementa | Ejemplo | Resultado |
+|:---|:---|:---|:---|
+| `fix: ...` | PATCH | `fix(r2): corrige error al borrar archivo` | `1.0.0` → `1.0.1` |
+| `feat: ...` | MINOR | `feat(api): agrega endpoint de descarga` | `1.0.0` → `1.1.0` |
+| `BREAKING CHANGE` | MAJOR | `feat(api)!: rediseña formato de respuesta` | `1.0.0` → `2.0.0` |
+
+**Ejemplos de commits para cada tipo de versión:**
+
+Patch (1.0.0 → 1.0.1):
+```
+fix(auth): corrige validación de API Key
+```
+
+Minor (1.0.0 → 1.1.0):
+```
+feat(api): agrega soporte para presigned URLs
+```
+
+Major (1.0.0 → 2.0.0):
+```
+feat(api)!: cambia estructura de respuesta del upload
+
+BREAKING CHANGE: el endpoint POST /files/:key ahora retorna {success, data} en lugar de {uploaded, metadata}
+```
+
+### Scripts de release
 
 Para validar localmente sin publicar:
 
@@ -175,7 +207,13 @@ Para validar localmente sin publicar:
 pnpm run release:dry
 ```
 
-Si ejecutas este comando fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
+Para ejecutar release manualmente con versión específica (avanzado):
+
+```bash
+pnpm run release -- --release-as 2.0.0
+```
+
+> ⚠️ Si ejecutas `release:dry` fuera de GitHub Actions, exporta `GH_TOKEN` o `GITHUB_TOKEN` con un token válido para evitar el error `ENOGHTOKEN`.
 
 ## 9. Documentación interactiva (Scalar)
 
@@ -416,8 +454,11 @@ r2-service/
 └── test/
 		├── config/                        # Espacio reservado para tests de configuración.
 		├── errors/                        # Espacio reservado para tests de errores.
+		├── integration/                   # Tests de integración HTTP sobre el pipeline real de Hono.
+		│   	└── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
 		└── unit/
-				└── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
+				├── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
+				└── RemoteFileFetcherService.test.ts # Tests unitarios del descargador remoto con DNS/fetch mockeados.
 ```
 
 ## 12. Convenciones de código
@@ -431,7 +472,7 @@ r2-service/
 
 ## 13. 🧪 Testing
 
-Ejecutar tests:
+Ejecutar toda la suite:
 
 ```bash
 pnpm test
@@ -443,15 +484,50 @@ Ver cobertura:
 pnpm test:coverage
 ```
 
-Cobertura actual de suites:
+Suites actuales:
 
-- `test/unit/R2Service.test.ts`: valida `uploadFile`, `getFile`, `deleteFile`, `listFiles` y `fileExists`.
-- `test/config/`: carpeta preparada para pruebas de validación/configuración.
-- `test/errors/`: carpeta preparada para pruebas de mapeo de errores de dominio.
+- `test/unit/R2Service.test.ts`
+	- Componente probado: `R2Service`, encargado del CRUD sobre Cloudflare R2 mediante AWS S3 SDK v3.
+	- Comportamiento crítico que protege: que el servicio sanee claves y prefijos, traduzca fallos esperados del SDK a errores de dominio y construya respuestas consistentes sin depender de R2 real.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME` y `R2_PUBLIC_URL`.
+	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, ausencia de `R2_PUBLIC_URL`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, ausencia de URL pública, existencia positiva, inexistencia y sanitización en `fileExists`.
+	- Garantías de seguridad de la suite: evita regresiones en sanitización contra path traversal para `key` y `prefix`, y asegura que los errores expuestos al resto del servicio sigan siendo errores de dominio controlados en lugar de filtrar fallos crudos del SDK.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/R2Service.test.ts
+```
+
+- `test/unit/RemoteFileFetcherService.test.ts`
+	- Componente probado: `RemoteFileFetcherService`, responsable de descargar recursos remotos con allowlist, validación DNS anti-SSRF, control manual de redirects y validaciones de MIME y tamaño.
+	- Comportamiento crítico que protege: que ninguna relajación en allowlist, bloqueo de IPs privadas, tipo MIME permitido, límite de bytes o validación de redirects pase inadvertida.
+	- Dependencias aisladas con mocks: `node:dns/promises` para controlar resoluciones DNS, `fetch` global para simular respuestas remotas y `@config/env.js` para fijar hosts permitidos, MIME aceptados, tamaño máximo, timeout y máximo de redirects.
+	- Escenarios cubiertos: host fuera de allowlist, hostname permitido que resuelve a IP privada, respuesta con MIME inválido, body que supera el tamaño máximo, redirect hacia host no permitido y descarga exitosa con `buffer`, `contentType`, `finalUrl` y `size`.
+	- Garantías de seguridad de la suite: endurece la defensa SSRF validando hostname y resolución DNS antes de descargar, impide aceptar contenido remoto fuera de política y garantiza que el límite de tamaño siga aplicándose incluso durante la lectura del body.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/RemoteFileFetcherService.test.ts
+```
+
+- `test/integration/import-from-url.routes.test.ts`
+	- Componente probado: el contrato HTTP de `POST /api/v1/files/import-from-url` montado sobre el `app` real de Hono en `src/routes/index.ts`, incluyendo `files.routes`, `authMiddleware` y `errorMiddleware`.
+	- Comportamiento crítico que protege: que el endpoint responda de forma consistente con `201`, `400` y `401` dentro del pipeline real de rutas y middleware, sin saltarse autenticación, parseo JSON ni manejo centralizado de errores.
+	- Dependencias aisladas con mocks: `@config/env.js` para fijar API key y configuración requerida por el arranque del pipeline, e `ImportFileFromUrlUseCase` para evitar descargas remotas y subidas reales a R2.
+	- Escenarios cubiertos: importación exitosa con body válido, rechazo de body con JSON inválido y rechazo por ausencia del header `x-api-key`.
+	- Garantías de seguridad de la suite: asegura que el endpoint siga exigiendo autenticación antes de tocar el caso de uso, que los errores de entrada inválida se traduzcan a `400` controlado y que ninguna prueba necesite red real ni almacenamiento externo para validar el contrato HTTP.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/integration/import-from-url.routes.test.ts
+```
+
+- `test/config/`: carpeta preparada para futuras pruebas de validación y configuración.
+- `test/errors/`: carpeta preparada para futuras pruebas de mapeo de errores de dominio.
 
 Nota de aislamiento:
 
-- Los tests no llaman a R2 real; la interacción con SDK se mockea con `vi.mock`.
+- Ninguna suite usa red real ni R2 real; todas las dependencias externas se aíslan con `vi.mock` o `vi.stubGlobal`, incluso en integración HTTP cuando se prueba el pipeline real con `app.request`.
 
 ## 14. 🐳 Despliegue con Docker
 
