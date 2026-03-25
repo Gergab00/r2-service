@@ -26,7 +26,7 @@ export const openApiSpec = {
       description: 'Local development server',
     },
     {
-      url: 'https://r2-service.tudominio.com',
+      url: 'https://r2-service-production-6368.up.railway.app',
       description: 'Production server',
     },
   ],
