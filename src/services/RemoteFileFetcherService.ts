@@ -324,6 +324,7 @@ export class RemoteFileFetcherService {
       totalBytes += value.byteLength;
 
       if (totalBytes > this.maxBytes) {
+        await reader.cancel();
         throw new RemoteFetchSizeLimitExceededError(this.maxBytes);
       }
 
