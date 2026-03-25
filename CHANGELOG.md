@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/Gergab00/r2-service/compare/v1.1.0...v1.1.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* **fetcher:** cancelar reader antes de lanzar error por tamaño máximo excedido ([5adae0e](https://github.com/Gergab00/r2-service/commit/5adae0e770c9138f21c324e3211779ac8f7c2c5f))
+* **ssrf:** anclar IP resuelta en fetchOnce para prevenir DNS rebinding ([0dac21f](https://github.com/Gergab00/r2-service/commit/0dac21f753d49099bc1bc2aab5e9646e3adcaeb2))
+
 # [1.1.0](https://github.com/Gergab00/r2-service/compare/v1.0.0...v1.1.0) (2026-03-25)
 
 
