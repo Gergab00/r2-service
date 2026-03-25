@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 
 import { env } from '../config/env.js';
-import { authMiddleware, errorMiddleware, loggerMiddleware } from '../middleware/index.js';
+import { authMiddleware, errorMiddleware, loggerMiddleware, requestContextMiddleware } from '../middleware/index.js';
 import { docsRoutes } from './docs.routes.js';
 import { filesRoutes } from './files.routes.js';
 import { healthRoutes } from './health.routes.js';
 
 const app: Hono = new Hono();
 
+app.use('*', requestContextMiddleware);
 app.use('*', loggerMiddleware);
 // Only expose API docs outside production environments.
 if (env.NODE_ENV !== 'production') app.route('/', docsRoutes);
