@@ -1,5 +1,8 @@
+import http from 'node:http';
+import https from 'node:https';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
 
 import { env } from '@config/env.js';
 import {
@@ -10,6 +13,14 @@ import {
   RemoteFetchSizeLimitExceededError,
   RemoteFetchSsrfError,
 } from '@errors/index.js';
+
+/**
+ * Dirección IP validada usada para anclar la conexión y evitar rebinding DNS.
+ */
+type PinnedAddress = {
+  readonly address: string;
+  readonly family: 4 | 6;
+};
 
 const REDIRECT_STATUS_CODES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 
@@ -51,9 +62,9 @@ export class RemoteFileFetcherService {
     let currentUrl: URL = originalUrl;
 
     for (let redirectCount = 0; redirectCount <= this.maxRedirects; redirectCount += 1) {
-      await this.assertSafeRemoteUrl(currentUrl);
+      const pinned: PinnedAddress = await this.assertSafeRemoteUrl(currentUrl);
 
-      const response: Response = await this.fetchOnce(currentUrl);
+      const response: Response = await this.fetchOnce(currentUrl, pinned);
 
       if (this.isRedirectResponse(response.status)) {
         currentUrl = this.resolveRedirectUrl(currentUrl, response, redirectCount);
@@ -117,11 +128,11 @@ export class RemoteFileFetcherService {
     return parsedUrl;
   }
 
-  private async assertSafeRemoteUrl(url: URL): Promise<void> {
+  private async assertSafeRemoteUrl(url: URL): Promise<PinnedAddress> {
     const hostname: string = url.hostname.toLowerCase();
 
     this.assertAllowedHost(hostname);
-    await this.assertSafeDnsResolution(hostname);
+    return this.assertSafeDnsResolution(hostname);
   }
 
   private assertAllowedHost(hostname: string): void {
@@ -130,12 +141,12 @@ export class RemoteFileFetcherService {
     }
   }
 
-  private async assertSafeDnsResolution(hostname: string): Promise<void> {
+  private async assertSafeDnsResolution(hostname: string): Promise<PinnedAddress> {
     if (this.isBlockedIpAddress(hostname)) {
       throw new RemoteFetchSsrfError(hostname);
     }
 
-    let addresses: Array<{ address: string }>;
+    let addresses: Array<{ address: string; family: number }>;
 
     try {
       addresses = await lookup(hostname, { all: true, verbatim: true });
@@ -155,18 +166,85 @@ export class RemoteFileFetcherService {
         throw new RemoteFetchSsrfError(hostname);
       }
     }
+
+    // Devolvemos la primera dirección validada para anclar la conexión TCP/TLS,
+    // evitando que una segunda resolución DNS pueda apuntar a una IP diferente
+    // (ataque de DNS rebinding).
+    const first = addresses[0]!;
+
+    return { address: first.address, family: first.family as 4 | 6 };
   }
 
-  private async fetchOnce(url: URL): Promise<Response> {
-    try {
-      return await fetch(url, {
+  /**
+   * Realiza una única solicitud HTTP/HTTPS anclando la conexión a la dirección IP
+   * previamente validada, para prevenir ataques de DNS rebinding.
+   * El campo `hostname` en las opciones garantiza que el header `Host` y el SNI de
+   * TLS usen el nombre de dominio original, mientras que la función `lookup`
+   * personalizada devuelve la IP validada sin hacer una nueva resolución DNS.
+   *
+   * @param url - URL a solicitar.
+   * @param pinned - Dirección IP y familia validadas por la comprobación SSRF previa.
+   * @returns Respuesta HTTP como objeto {@link Response} de la Fetch API.
+   * @throws {RemoteFetchDownloadError} Si la solicitud falla a nivel de red.
+   */
+  private async fetchOnce(url: URL, pinned: PinnedAddress): Promise<Response> {
+    return new Promise<Response>((resolve, reject) => {
+      const isHttps = url.protocol === 'https:';
+      const defaultPort = isHttps ? 443 : 80;
+      const port = url.port !== '' ? Number(url.port) : defaultPort;
+
+      const options: http.RequestOptions = {
+        hostname: url.hostname,
+        port,
+        path: `${url.pathname}${url.search}`,
         method: 'GET',
-        redirect: 'manual',
+        // Ancla la conexión TCP/TLS a la IP validada, sin nueva resolución DNS.
+        // hostname sigue siendo el dominio original → Host header y TLS SNI correctos.
+        // _hostname se ignora intencionalmente: siempre devolvemos la IP ya validada.
+        lookup: (_hostname, _opts, cb) => {
+          cb(null, pinned.address, pinned.family);
+        },
         signal: AbortSignal.timeout(this.timeoutMs),
+      };
+
+      const makeRequest = isHttps ? https.request : http.request;
+
+      const req = makeRequest(options, (res) => {
+        const headers = new Headers();
+
+        for (const [key, value] of Object.entries(res.headers)) {
+          if (value === undefined) {
+            continue;
+          }
+
+          if (Array.isArray(value)) {
+            for (const v of value) {
+              headers.append(key, v);
+            }
+          } else {
+            headers.set(key, value);
+          }
+        }
+
+        // Convierte el Readable de Node.js a un Web ReadableStream compatible con
+        // el constructor de Response, preservando el streaming del body.
+        const body = Readable.toWeb(res) as ReadableStream<Uint8Array>;
+
+        resolve(
+          new Response(body, {
+            status: res.statusCode ?? 0,
+            statusText: res.statusMessage ?? '',
+            headers,
+          }),
+        );
       });
-    } catch (error: unknown) {
-      throw new RemoteFetchDownloadError(url.toString(), error);
-    }
+
+      req.once('error', (err: Error) => {
+        reject(new RemoteFetchDownloadError(url.toString(), err));
+      });
+
+      req.end();
+    });
   }
 
   private isRedirectResponse(statusCode: number): boolean {
