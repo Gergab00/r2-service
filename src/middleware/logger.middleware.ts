@@ -1,14 +1,17 @@
 import type { Context, MiddlewareHandler, Next } from 'hono';
+import { logger, type LogLevel } from '@config/logger.js';
+import { getRequestIdFromContext } from './request-context.middleware.js';
 
-type LoggerLevel = 'info';
+const pickLevelByStatusCode = (statusCode: number): LogLevel => {
+  if (statusCode >= 500) {
+    return 'error';
+  }
 
-type LoggerEntry = {
-  level: LoggerLevel;
-  method: string;
-  path: string;
-  status: number | null;
-  durationMs: number | null;
-  timestamp: string;
+  if (statusCode >= 400) {
+    return 'warn';
+  }
+
+  return 'info';
 };
 
 /**
@@ -19,36 +22,50 @@ export const loggerMiddleware: MiddlewareHandler = async (
   c: Context,
   next: Next,
 ): Promise<void> => {
-  const startTimestamp: string = new Date().toISOString();
-  const method: string = c.req.method;
-  const path: string = c.req.path;
+  const method = c.req.method;
+  const path = c.req.path;
+  const requestId = getRequestIdFromContext(c);
+  const userAgent = c.req.header('user-agent') ?? null;
+  const forwardedFor = c.req.header('x-forwarded-for') ?? null;
   const startedAtMs: number = Date.now();
 
-  const requestLog: LoggerEntry = {
-    level: 'info',
+  const requestLogger = logger.child({
+    requestId,
     method,
     path,
-    status: null,
-    durationMs: null,
-    timestamp: startTimestamp,
-  };
+  });
 
-  console.log(JSON.stringify(requestLog));
+  requestLogger.debug('request.start', {
+    userAgent,
+    forwardedFor,
+  });
 
   try {
     await next();
   } finally {
+    const status = c.res.status;
     const durationMs: number = Date.now() - startedAtMs;
+    const responseSizeBytesHeader = c.res.headers.get('content-length');
+    const responseSizeBytes =
+      responseSizeBytesHeader === null ? null : Number.parseInt(responseSizeBytesHeader, 10);
 
-    const responseLog: LoggerEntry = {
-      level: 'info',
-      method,
-      path,
-      status: c.res.status,
+    const level = pickLevelByStatusCode(status);
+    const responseLogFields = {
+      status,
       durationMs,
-      timestamp: new Date().toISOString(),
+      responseSizeBytes: Number.isFinite(responseSizeBytes) ? responseSizeBytes : null,
     };
 
-    console.log(JSON.stringify(responseLog));
+    if (level === 'error') {
+      requestLogger.error('request.end', responseLogFields);
+      return;
+    }
+
+    if (level === 'warn') {
+      requestLogger.warn('request.end', responseLogFields);
+      return;
+    }
+
+    requestLogger.info('request.end', responseLogFields);
   }
 };

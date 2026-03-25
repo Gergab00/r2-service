@@ -4,6 +4,7 @@ const { executeMock, mockEnv } = vi.hoisted(() => ({
   executeMock: vi.fn(),
   mockEnv: {
     NODE_ENV: 'test',
+    LOG_LEVEL: 'debug',
     API_KEY: '0123456789abcdef0123456789abcdef',
     R2_ACCOUNT_ID: 'test-account-id',
     R2_ACCESS_KEY_ID: 'test-access-key-id',
