@@ -1,3 +1,20 @@
+# [1.2.0](https://github.com/Gergab00/r2-service/compare/v1.1.1...v1.2.0) (2026-03-25)
+
+
+### Bug Fixes
+
+* **openapi:** actualizar URL del servidor de producción ([630359f](https://github.com/Gergab00/r2-service/commit/630359faf49fd708875a685f29b1759817343a75))
+
+
+### Features
+
+* **docs:** actualizar README para incluir LOG_LEVEL y detalles de logging estructurado ([681f211](https://github.com/Gergab00/r2-service/commit/681f211c3cb5a00c724f2d43ad5ee5299dfc2e58))
+* **env:** agregar LOG_LEVEL al esquema de configuración ([9b8d79d](https://github.com/Gergab00/r2-service/commit/9b8d79d2e221e37bb79b10c90fcd7f69a2ea85c0))
+* **logger:** agregar implementación del logger con niveles de log y manejo de errores ([fb4661b](https://github.com/Gergab00/r2-service/commit/fb4661b5b5a26cfe882e27caee27979c079bc244))
+* **logger:** integrar logger estructurado en el manejo de errores y el inicio del servidor ([e72bc28](https://github.com/Gergab00/r2-service/commit/e72bc28c6f4f6c897ee6a7d3ab1e75ef0d514284))
+* **middleware:** agregar middleware para manejo de ID de solicitud ([ee6ed7f](https://github.com/Gergab00/r2-service/commit/ee6ed7fc1f28db283b26c349e99bcbcf785f1afc))
+* **tests:** agregar pruebas unitarias para middleware de logger y manejo de errores ([e335291](https://github.com/Gergab00/r2-service/commit/e335291c41ee7f59aecb851e769ce9e86014f1eb))
+
 ## [1.1.1](https://github.com/Gergab00/r2-service/compare/v1.1.0...v1.1.1) (2026-03-25)
 
 
