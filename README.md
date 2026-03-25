@@ -58,6 +58,7 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `R2_PUBLIC_URL` | Base URL pública para construir URLs de salida. | No | Vacío | `https://pub-xxxxxxxx.r2.dev` |
 | `PORT` | Puerto HTTP del servicio. | No | `3000` | `3000` |
 | `NODE_ENV` | Entorno de ejecución (`development`, `production`, `test`). | No | `development` | `development` |
+| `LOG_LEVEL` | Nivel mínimo de logs estructurados (`debug`, `info`, `warn`, `error`). | No | `info` | `debug` |
 | `API_KEY` | Clave usada por el header `x-api-key` (mínimo 32 chars). | Sí | No | `4f7f6f6d1c...` |
 | `REMOTE_FETCH_ALLOWED_HOSTS` | Hosts remotos permitidos para descarga, separados por coma. | Sí | No | `images-na.ssl-images-amazon.com,m.media-amazon.com` |
 | `REMOTE_FETCH_ALLOWED_MIME_TYPES` | MIME types aceptados en la respuesta remota, separados por coma. | Sí | No | `image/jpeg,image/png,image/webp` |
@@ -117,7 +118,7 @@ Respuesta esperada:
 Output esperado en consola al arrancar correctamente:
 
 ```json
-{"level":"info","message":"r2-service running","port":3000,"env":"development","timestamp":"2026-03-23T14:00:00.000Z"}
+{"service":"r2-service","env":"development","level":"info","message":"server.started","timestamp":"2026-03-23T14:00:00.000Z","port":3000}
 ```
 
 ## 8. 🛠️ Scripts disponibles
@@ -423,6 +424,7 @@ r2-service/
 │   ├── index.ts                       # Entrada del proceso Node, carga env e inicia servidor.
 │   ├── config/
 │   │   ├── env.ts                     # Validación Zod de variables de entorno.
+│   │   ├── logger.ts                  # Logger estructurado central y serialización de errores.
 │   │   ├── openapi.ts                 # Especificación OpenAPI base y componentes.
 │   │   └── r2Client.ts                # Cliente S3 configurado para Cloudflare R2.
 │   ├── errors/
@@ -437,7 +439,8 @@ r2-service/
 │   │   ├── auth.middleware.ts         # Validación de API Key con timingSafeEqual.
 │   │   ├── error.middleware.ts        # Mapeo de errores a respuestas HTTP JSON.
 │   │   ├── index.ts                   # Barrel de middlewares.
-│   │   └── logger.middleware.ts       # Logging estructurado de requests.
+│   │   ├── logger.middleware.ts       # Logging estructurado de requests y métricas de respuesta.
+│   │   └── request-context.middleware.ts # Generación y propagación de requestId por solicitud.
 │   ├── routes/
 │   │   ├── docs.routes.ts             # OpenAPI JSON y UI Scalar.
 │   │   ├── files.routes.ts            # Endpoints CRUD de archivos en R2.
@@ -457,6 +460,8 @@ r2-service/
 		├── integration/                   # Tests de integración HTTP sobre el pipeline real de Hono.
 		│   	└── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
 		└── unit/
+				├── error.middleware.test.ts     # Tests del middleware de errores y serialización de fallos.
+				├── logger.middleware.test.ts    # Tests de logging request/response con requestId.
 				├── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
 				└── RemoteFileFetcherService.test.ts # Tests unitarios del descargador remoto con DNS/fetch mockeados.
 ```
@@ -496,6 +501,30 @@ Suites actuales:
 
 ```bash
 pnpm vitest run test/unit/R2Service.test.ts
+```
+
+- `test/unit/logger.middleware.test.ts`
+	- Componente probado: `loggerMiddleware` junto con `requestContextMiddleware` para registrar entrada/salida de requests con correlación por `requestId`.
+	- Comportamiento crítico que protege: que el cierre de cada request registre `status`, `durationMs` y `requestId`, y que los errores HTTP queden clasificados con nivel `error`.
+	- Dependencias aisladas con mocks: `@config/env.js` para controlar `LOG_LEVEL` y `NODE_ENV`, y spies sobre `console.debug`, `console.info` y `console.error` para capturar eventos de log estructurado.
+	- Escenarios cubiertos: respuesta 200 con requestId propagado desde header y respuesta 500 con emisión de `request.end` en nivel `error`.
+	- Garantías de seguridad de la suite: valida la trazabilidad por request para auditoría de fallos y evita regresiones donde se pierda la correlación entre petición, respuesta y error operativo.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/logger.middleware.test.ts
+```
+
+- `test/unit/error.middleware.test.ts`
+	- Componente probado: `errorMiddleware` integrado con `requestContextMiddleware` para mapear errores de dominio/validación y emitir logs enriquecidos.
+	- Comportamiento crítico que protege: que errores de dominio con `cause` se serialicen en logs y que errores de validación mantengan respuesta `400` consistente con logging en nivel `warn`.
+	- Dependencias aisladas con mocks: `@config/env.js` para fijar `LOG_LEVEL`/`NODE_ENV` y spies sobre `console.warn`/`console.error` para verificar contenido estructurado del log.
+	- Escenarios cubiertos: `R2UploadError` con causa anidada en respuesta 500 y `ValidationError` con detalles de entrada en respuesta 400.
+	- Garantías de seguridad de la suite: asegura que el servicio conserve detalle técnico interno para diagnóstico sin romper el contrato HTTP de errores controlados al cliente.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/error.middleware.test.ts
 ```
 
 - `test/unit/RemoteFileFetcherService.test.ts`
