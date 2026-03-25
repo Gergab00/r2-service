@@ -8,6 +8,7 @@ const envSchema = z.object({
   R2_PUBLIC_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   API_KEY: z.string().min(32),
   REMOTE_FETCH_ALLOWED_HOSTS: z.string().min(1),
   REMOTE_FETCH_ALLOWED_MIME_TYPES: z.string().min(1),
