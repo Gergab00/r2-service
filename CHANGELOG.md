@@ -1,3 +1,11 @@
+# [1.3.0](https://github.com/Gergab00/r2-service/compare/v1.2.0...v1.3.0) (2026-03-26)
+
+
+### Features
+
+* **docs:** agregar secciones de diagnóstico para descarga remota y manejo de errores en README ([aba219e](https://github.com/Gergab00/r2-service/commit/aba219e996938843fe51b3f660f9825d7f9020c3))
+* **logging:** agregar soporte para logging estructurado en la clase RemoteFileFetcherService ([e5dded2](https://github.com/Gergab00/r2-service/commit/e5dded245f2c16c34b0ff02bc0356edf5863f935))
+
 # [1.2.0](https://github.com/Gergab00/r2-service/compare/v1.1.1...v1.2.0) (2026-03-25)
 
 
