@@ -12,7 +12,6 @@ const { getDownloadSignedUrlMock, mockEnv } = vi.hoisted(() => ({
     R2_ACCESS_KEY_ID: 'test-access-key-id',
     R2_SECRET_ACCESS_KEY: 'test-secret-access-key',
     R2_BUCKET_NAME: 'test-bucket',
-    R2_PUBLIC_URL: 'https://cdn.example.com',
     PORT: 3000,
     REMOTE_FETCH_ALLOWED_HOSTS: 'allowed.example.com',
     REMOTE_FETCH_ALLOWED_MIME_TYPES: 'image/webp,image/jpeg',

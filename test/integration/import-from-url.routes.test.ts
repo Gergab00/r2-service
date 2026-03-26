@@ -10,7 +10,6 @@ const { executeMock, mockEnv } = vi.hoisted(() => ({
     R2_ACCESS_KEY_ID: 'test-access-key-id',
     R2_SECRET_ACCESS_KEY: 'test-secret-access-key',
     R2_BUCKET_NAME: 'test-bucket',
-    R2_PUBLIC_URL: 'https://cdn.example.com',
     PORT: 3000,
     REMOTE_FETCH_ALLOWED_HOSTS: 'allowed.example.com',
     REMOTE_FETCH_ALLOWED_MIME_TYPES: 'image/webp,image/jpeg',
@@ -40,7 +39,6 @@ describe('POST /api/v1/files/import-from-url', () => {
   it('debe responder 201 cuando el body es válido y el caso de uso termina correctamente', async () => {
     executeMock.mockResolvedValueOnce({
       key: 'imports/file.webp',
-      publicUrl: 'https://cdn.example.com/imports/file.webp',
       size: 512,
       contentType: 'image/webp',
       uploadedAt: '2026-03-24T17:00:00.000Z',
@@ -62,7 +60,6 @@ describe('POST /api/v1/files/import-from-url', () => {
       success: boolean;
       data: {
         key: string;
-        publicUrl: string;
         size: number;
         contentType: string;
         uploadedAt: string;
@@ -75,7 +72,6 @@ describe('POST /api/v1/files/import-from-url', () => {
       success: true,
       data: {
         key: 'imports/file.webp',
-        publicUrl: 'https://cdn.example.com/imports/file.webp',
         size: 512,
         contentType: 'image/webp',
         uploadedAt: '2026-03-24T17:00:00.000Z',
