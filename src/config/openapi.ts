@@ -167,11 +167,6 @@ export const openApiComponents = {
               type: 'string',
               example: 'productos/B08N5W/principal.jpg',
             },
-            publicUrl: {
-              type: 'string',
-              format: 'uri',
-              example: 'https://cdn.tudominio.com/productos/B08N5W/principal.jpg',
-            },
             size: {
               type: 'integer',
               minimum: 0,
@@ -187,7 +182,7 @@ export const openApiComponents = {
               example: '2026-03-23T14:12:58.000Z',
             },
           },
-          required: ['key', 'publicUrl', 'size', 'contentType', 'uploadedAt'],
+          required: ['key', 'size', 'contentType', 'uploadedAt'],
         },
         timestamp: {
           type: 'string',
@@ -253,11 +248,6 @@ export const openApiComponents = {
                     type: 'string',
                     example: 'productos/B08N5W/principal.jpg',
                   },
-                  publicUrl: {
-                    type: 'string',
-                    format: 'uri',
-                    example: 'https://cdn.tudominio.com/productos/B08N5W/principal.jpg',
-                  },
                   size: {
                     type: 'integer',
                     minimum: 0,
@@ -269,7 +259,7 @@ export const openApiComponents = {
                     example: '2026-03-23T14:02:21.000Z',
                   },
                 },
-                required: ['key', 'publicUrl', 'size', 'lastModified'],
+                required: ['key', 'size', 'lastModified'],
               },
             },
             count: {
