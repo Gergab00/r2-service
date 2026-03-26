@@ -7,12 +7,14 @@ import {
   downloadKeySchema,
   importFromUrlBodySchema,
   listQuerySchema,
+  signedUrlBodySchema,
   uploadKeySchema,
   uploadQuerySchema,
   type DeleteKeyInput,
   type DownloadKeyInput,
   type ImportFromUrlBodyInput,
   type ListQueryInput,
+  type SignedUrlBodyInput,
   type UploadKeyInput,
   type UploadQueryInput,
 } from '../schemas/index.js';
@@ -20,6 +22,7 @@ import {
   r2Service,
   type DeleteResult,
   type ListResult,
+  type SignedUrlResult,
   type UploadResult,
 } from '../services/R2Service.js';
 import {
@@ -148,7 +151,28 @@ const listFilesHandler = async (c: Context): Promise<Response> => {
   return c.json(response, 200);
 };
 
+/**
+ * POST /files/signed-url
+ *
+ * Valida body JSON, genera una URL firmada temporal para descarga y responde
+ * con metadatos de expiracion en formato tipado.
+ */
+const signedUrlHandler = async (c: Context): Promise<Response> => {
+  const rawBody: unknown = await parseJsonBody<unknown>(c);
+  const body: SignedUrlBodyInput = signedUrlBodySchema.parse(rawBody);
+  const signedUrlResult: SignedUrlResult = await r2Service.getDownloadSignedUrl(body.key, body.expiresIn);
+
+  const response: SuccessResponse<SignedUrlResult> = {
+    success: true,
+    data: signedUrlResult,
+    timestamp: new Date().toISOString(),
+  };
+
+  return c.json(response, 200);
+};
+
 filesRoutes.post('/files/import-from-url', importFileFromUrlHandler);
+filesRoutes.post('/files/signed-url', signedUrlHandler);
 filesRoutes.post('/files/:key', uploadFileHandler);
 filesRoutes.get('/files/:key', downloadFileHandler);
 filesRoutes.delete('/files/:key', deleteFileHandler);

@@ -55,7 +55,6 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `R2_ACCESS_KEY_ID` | Access Key ID del token R2. | Sí | No | `a1b2c3d4e5f6g7h8i9j0` |
 | `R2_SECRET_ACCESS_KEY` | Secret Access Key del token R2. | Sí | No | `xYz...clave-secreta...123` |
 | `R2_BUCKET_NAME` | Nombre del bucket R2 objetivo. | Sí | No | `amazon-products-images` |
-| `R2_PUBLIC_URL` | Base URL pública para construir URLs de salida. | No | Vacío | `https://pub-xxxxxxxx.r2.dev` |
 | `PORT` | Puerto HTTP del servicio. | No | `3000` | `3000` |
 | `NODE_ENV` | Entorno de ejecución (`development`, `production`, `test`). | No | `development` | `development` |
 | `LOG_LEVEL` | Nivel mínimo de logs estructurados (`debug`, `info`, `warn`, `error`). | No | `info` | `debug` |
@@ -87,8 +86,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 4. Ve a **Manage R2 API Tokens**.
 5. Crea un token con permisos **Object Read & Write**.
 6. Copia `Account ID`, `Access Key ID` y `Secret Access Key` al archivo `.env`.
-
-> ℹ️ Para `R2_PUBLIC_URL` puedes usar un dominio propio sobre R2 o una URL `r2.dev` pública, según tu estrategia de entrega de archivos.
 
 ## 7. 🚀 Arrancar el proyecto
 
@@ -235,9 +232,12 @@ pnpm run release -- --release-as 2.0.0
 |:-------|:-----|:------------|:---------------|
 | `GET` | `/health` | Estado de disponibilidad del servicio. | No |
 | `GET` | `/api/v1/files` | Lista archivos en R2 (acepta `prefix`). | Sí (`x-api-key`) |
+| `POST` | `/api/v1/files/signed-url` | Genera una URL firmada temporal para descargar un archivo privado existente. | Sí (`x-api-key`) |
 | `POST` | `/api/v1/files/:key` | Sube un archivo binario a R2. | Sí (`x-api-key`) |
 | `GET` | `/api/v1/files/:key` | Descarga un archivo desde R2. | Sí (`x-api-key`) |
 | `DELETE` | `/api/v1/files/:key` | Elimina un archivo de R2. | Sí (`x-api-key`) |
+
+> ℹ️ `POST /api/v1/files/signed-url` esta pensado para buckets privados y entrega acceso temporal por archivo sin volver publico el bucket.
 
 ### GET /health
 
@@ -277,7 +277,6 @@ curl -H "x-api-key: TU_API_KEY" "http://localhost:3000/api/v1/files?prefix=produ
 		"files": [
 			{
 				"key": "productos/demo/imagen.jpg",
-				"publicUrl": "https://pub-xxxxxxxx.r2.dev/productos/demo/imagen.jpg",
 				"size": 183452,
 				"lastModified": "2026-03-23T14:02:21.000Z"
 			}
@@ -315,7 +314,6 @@ curl -X POST \
 	"success": true,
 	"data": {
 		"key": "productos/demo/imagen.jpg",
-		"publicUrl": "https://pub-xxxxxxxx.r2.dev/productos/demo/imagen.jpg",
 		"size": 183452,
 		"contentType": "image/jpeg",
 		"uploadedAt": "2026-03-23T14:12:58.000Z"
@@ -333,6 +331,52 @@ curl -X POST --data-binary "@./ejemplos/imagen.jpg" "http://localhost:3000/api/v
 	"code": "UNAUTHORIZED",
 	"message": "API Key inválida o ausente.",
 	"timestamp": "2026-03-23T14:25:00.000Z"
+}
+```
+
+### POST /api/v1/files/signed-url
+
+```bash
+curl -X POST \
+	-H "x-api-key: TU_API_KEY" \
+	-H "Content-Type: application/json" \
+	-d '{"key":"privados/demo/factura.pdf","expiresIn":900}' \
+	"http://localhost:3000/api/v1/files/signed-url"
+```
+
+```json
+{
+	"success": true,
+	"data": {
+		"signedUrl": "https://<account>.r2.cloudflarestorage.com/<bucket>/privados/demo/factura.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900",
+		"expiresIn": 900,
+		"expiresAt": "2026-03-26T18:00:00.000Z"
+	},
+	"timestamp": "2026-03-26T17:45:00.000Z"
+}
+```
+
+```bash
+curl -X POST \
+	-H "x-api-key: TU_API_KEY" \
+	-H "Content-Type: application/json" \
+	-d '{"key":"privados/demo/factura.pdf","expiresIn":10}' \
+	"http://localhost:3000/api/v1/files/signed-url"
+```
+
+```json
+{
+	"code": "VALIDATION_ERROR",
+	"message": "Error de validación",
+	"details": {
+		"fieldErrors": {
+			"expiresIn": [
+				"expiresIn debe ser mayor o igual a 60 segundos."
+			]
+		},
+		"formErrors": []
+	},
+	"timestamp": "2026-03-26T17:45:10.000Z"
 }
 ```
 
@@ -437,6 +481,7 @@ r2-service/
 │   │   ├── index.ts                   # Barrel de exportación de errores.
 │   │   ├── R2DeleteError.ts           # Error de fallo al eliminar en R2.
 │   │   ├── R2NotFoundError.ts         # Error cuando un objeto no existe en R2.
+│   │   ├── R2SignedUrlError.ts        # Error al generar URL firmada temporal de descarga.
 │   │   ├── R2UploadError.ts           # Error de fallo de subida a R2.
 │   │   ├── UnauthorizedError.ts       # Error por API Key ausente o inválida.
 │   │   └── ValidationError.ts         # Error de validación de entradas.
@@ -456,6 +501,7 @@ r2-service/
 │   │   ├── download.schema.ts         # Esquema Zod para GET /files/:key.
 │   │   ├── index.ts                   # Barrel de esquemas Zod.
 │   │   ├── list.schema.ts             # Esquema Zod para query de listado.
+│   │   ├── signed-url.schema.ts       # Esquema Zod para POST /files/signed-url.
 │   │   └── upload.schema.ts           # Esquema Zod para upload y validación de key.
 │   └── services/
 │       └── R2Service.ts               # Servicio de dominio para operaciones en R2.
@@ -463,10 +509,12 @@ r2-service/
 		├── config/                        # Espacio reservado para tests de configuración.
 		├── errors/                        # Espacio reservado para tests de errores.
 		├── integration/                   # Tests de integración HTTP sobre el pipeline real de Hono.
-		│   	└── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
+		│   	├── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
+		│   	└── signed-url.routes.test.ts # Contrato HTTP del endpoint de URL firmada temporal.
 		└── unit/
 				├── error.middleware.test.ts     # Tests del middleware de errores y serialización de fallos.
 				├── logger.middleware.test.ts    # Tests de logging request/response con requestId.
+				├── R2Service.signed-url.test.ts # Tests unitarios de generación de URL firmada temporal.
 				├── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
 				└── RemoteFileFetcherService.test.ts # Tests unitarios del descargador remoto con DNS/fetch mockeados.
 ```
@@ -499,13 +547,25 @@ Suites actuales:
 - `test/unit/R2Service.test.ts`
 	- Componente probado: `R2Service`, encargado del CRUD sobre Cloudflare R2 mediante AWS S3 SDK v3.
 	- Comportamiento crítico que protege: que el servicio sanee claves y prefijos, traduzca fallos esperados del SDK a errores de dominio y construya respuestas consistentes sin depender de R2 real.
-	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME` y `R2_PUBLIC_URL`.
-	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, ausencia de `R2_PUBLIC_URL`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, ausencia de URL pública, existencia positiva, inexistencia y sanitización en `fileExists`.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME`.
+	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, existencia positiva, inexistencia y sanitización en `fileExists`.
 	- Garantías de seguridad de la suite: evita regresiones en sanitización contra path traversal para `key` y `prefix`, y asegura que los errores expuestos al resto del servicio sigan siendo errores de dominio controlados en lugar de filtrar fallos crudos del SDK.
 	- Comando individual:
 
 ```bash
 pnpm vitest run test/unit/R2Service.test.ts
+```
+
+- `test/unit/R2Service.signed-url.test.ts`
+	- Componente probado: método `getDownloadSignedUrl` en `R2Service`, responsable de generar URLs firmadas temporales para objetos privados.
+	- Comportamiento crítico que protege: que solo se firmen objetos existentes, que la key se sanitice antes de firmar y que los fallos del presigner se traduzcan a error de dominio controlado.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` para `HeadObject`, `@config/env.js` para bucket y `@aws-sdk/s3-request-presigner` para evitar firmas reales.
+	- Escenarios cubiertos: firma exitosa, sanitización de key, archivo inexistente y fallo del presigner mapeado a `R2SignedUrlError`.
+	- Garantías de seguridad de la suite: evita regresiones que permitan firmar rutas no sanitizadas o exponer errores crudos del SDK/presigner en la capa superior.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/R2Service.signed-url.test.ts
 ```
 
 - `test/unit/logger.middleware.test.ts`
@@ -554,6 +614,18 @@ pnpm vitest run test/unit/RemoteFileFetcherService.test.ts
 
 ```bash
 pnpm vitest run test/integration/import-from-url.routes.test.ts
+```
+
+- `test/integration/signed-url.routes.test.ts`
+	- Componente probado: contrato HTTP de `POST /api/v1/files/signed-url` sobre `app` real de Hono con `authMiddleware` y `errorMiddleware`.
+	- Comportamiento crítico que protege: respuesta homogénea en éxito (`200`) y errores (`400`, `401`, `404`) dentro del pipeline real.
+	- Dependencias aisladas con mocks: `@config/env.js` para configuración de arranque y `r2Service.getDownloadSignedUrl` para evitar dependencia de R2 real.
+	- Escenarios cubiertos: generación exitosa, ausencia de `x-api-key`, `expiresIn` fuera de rango y archivo inexistente.
+	- Garantías de seguridad de la suite: valida que la autenticación ocurra antes de tocar la lógica de firma y que inputs inválidos no lleguen a la capa de servicio.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/integration/signed-url.routes.test.ts
 ```
 
 - `test/config/`: carpeta preparada para futuras pruebas de validación y configuración.

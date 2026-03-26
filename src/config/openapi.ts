@@ -129,6 +129,28 @@ export const openApiComponents = {
       required: ['url', 'key'],
     },
 
+    SignedUrlRequest: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        key: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 512,
+          pattern: '^[A-Za-z0-9/_.-]+$',
+          example: 'privados/B08N5W/factura.pdf',
+        },
+        expiresIn: {
+          type: 'integer',
+          minimum: 60,
+          maximum: 3600,
+          default: 900,
+          example: 900,
+        },
+      },
+      required: ['key'],
+    },
+
     UploadResponse: {
       type: 'object',
       additionalProperties: false,
@@ -145,11 +167,6 @@ export const openApiComponents = {
               type: 'string',
               example: 'productos/B08N5W/principal.jpg',
             },
-            publicUrl: {
-              type: 'string',
-              format: 'uri',
-              example: 'https://cdn.tudominio.com/productos/B08N5W/principal.jpg',
-            },
             size: {
               type: 'integer',
               minimum: 0,
@@ -165,7 +182,7 @@ export const openApiComponents = {
               example: '2026-03-23T14:12:58.000Z',
             },
           },
-          required: ['key', 'publicUrl', 'size', 'contentType', 'uploadedAt'],
+          required: ['key', 'size', 'contentType', 'uploadedAt'],
         },
         timestamp: {
           type: 'string',
@@ -231,11 +248,6 @@ export const openApiComponents = {
                     type: 'string',
                     example: 'productos/B08N5W/principal.jpg',
                   },
-                  publicUrl: {
-                    type: 'string',
-                    format: 'uri',
-                    example: 'https://cdn.tudominio.com/productos/B08N5W/principal.jpg',
-                  },
                   size: {
                     type: 'integer',
                     minimum: 0,
@@ -247,7 +259,7 @@ export const openApiComponents = {
                     example: '2026-03-23T14:02:21.000Z',
                   },
                 },
-                required: ['key', 'publicUrl', 'size', 'lastModified'],
+                required: ['key', 'size', 'lastModified'],
               },
             },
             count: {
@@ -270,6 +282,47 @@ export const openApiComponents = {
           type: 'string',
           format: 'date-time',
           example: '2026-03-23T14:20:44.000Z',
+        },
+      },
+      required: ['success', 'data', 'timestamp'],
+    },
+
+    SignedUrlResponse: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        success: {
+          type: 'boolean',
+          example: true,
+        },
+        data: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            signedUrl: {
+              type: 'string',
+              format: 'uri',
+              example:
+                'https://example.r2.cloudflarestorage.com/test-bucket/privados/B08N5W/factura.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900',
+            },
+            expiresIn: {
+              type: 'integer',
+              minimum: 60,
+              maximum: 3600,
+              example: 900,
+            },
+            expiresAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-03-26T17:30:00.000Z',
+            },
+          },
+          required: ['signedUrl', 'expiresIn', 'expiresAt'],
+        },
+        timestamp: {
+          type: 'string',
+          format: 'date-time',
+          example: '2026-03-26T17:15:00.000Z',
         },
       },
       required: ['success', 'data', 'timestamp'],
@@ -460,6 +513,48 @@ export const openApiComponents = {
 } as const;
 
 export const openApiPaths = {
+  '/api/v1/files/signed-url': {
+    post: {
+      operationId: 'createSignedUrl',
+      summary: 'Generate temporary download signed URL',
+      description:
+        'Generates a time-limited signed URL to download a private object from R2 without exposing the bucket publicly.',
+      tags: ['Archivos'],
+      requestBody: {
+        required: true,
+        description: 'JSON body with the object key and the requested expiration in seconds.',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/SignedUrlRequest' },
+            examples: {
+              default: {
+                summary: 'Generar URL firmada temporal',
+                value: {
+                  key: 'privados/B08N5W/factura.pdf',
+                  expiresIn: 900,
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': {
+          description: 'Temporary signed URL generated successfully.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/SignedUrlResponse' },
+            },
+          },
+        },
+        '400': { $ref: '#/components/responses/ValidationError' },
+        '401': { $ref: '#/components/responses/Unauthorized' },
+        '404': { $ref: '#/components/responses/NotFound' },
+        '500': { $ref: '#/components/responses/InternalError' },
+      },
+    },
+  },
+
   '/api/v1/files/import-from-url': {
     post: {
       operationId: 'importFileFromUrl',
