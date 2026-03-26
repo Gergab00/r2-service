@@ -15,7 +15,6 @@ import { R2DeleteError, R2NotFoundError, R2SignedUrlError, R2UploadError } from 
 
 export type UploadResult = {
   key: string;
-  publicUrl: string | null;
   size: number;
   contentType: string;
   uploadedAt: string;
@@ -28,7 +27,6 @@ export type DeleteResult = {
 
 export type FileItem = {
   key: string;
-  publicUrl: string | null;
   size: number;
   lastModified: string | null;
 };
@@ -57,7 +55,7 @@ export class R2Service {
    * @param key - Ruta o identificador del objeto dentro del bucket.
    * @param body - Contenido binario del archivo a subir.
    * @param contentType - MIME type a registrar para el objeto.
-   * @returns Metadatos del archivo subido incluyendo URL pública (si aplica).
+  * @returns Metadatos del archivo subido.
    * @throws {R2UploadError} Si la operación de subida falla por cualquier motivo.
    */
   public async uploadFile(key: string, body: Buffer, contentType: string): Promise<UploadResult> {
@@ -79,7 +77,6 @@ export class R2Service {
 
     return {
       key: safeKey,
-      publicUrl: this.buildPublicUrl(safeKey),
       size: body.length,
       contentType,
       uploadedAt: new Date().toISOString(),
@@ -167,7 +164,6 @@ export class R2Service {
 
       accumulator.push({
         key: item.Key,
-        publicUrl: this.buildPublicUrl(item.Key),
         size: item.Size ?? 0,
         lastModified: item.LastModified?.toISOString() ?? null,
       });
@@ -243,14 +239,6 @@ export class R2Service {
 
   private sanitizeKey(key: string): string {
     return key.replace(/\.\.\//g, '').replace(/^\/+/, '');
-  }
-
-  private buildPublicUrl(key: string): string | null {
-    if (!env.R2_PUBLIC_URL) {
-      return null;
-    }
-
-    return `${env.R2_PUBLIC_URL}/${key}`;
   }
 
   private isNotFoundError(error: unknown): boolean {
