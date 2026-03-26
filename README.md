@@ -55,7 +55,6 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `R2_ACCESS_KEY_ID` | Access Key ID del token R2. | Sí | No | `a1b2c3d4e5f6g7h8i9j0` |
 | `R2_SECRET_ACCESS_KEY` | Secret Access Key del token R2. | Sí | No | `xYz...clave-secreta...123` |
 | `R2_BUCKET_NAME` | Nombre del bucket R2 objetivo. | Sí | No | `amazon-products-images` |
-| `R2_PUBLIC_URL` | Base URL pública para construir URLs de salida. | No | Vacío | `https://pub-xxxxxxxx.r2.dev` |
 | `PORT` | Puerto HTTP del servicio. | No | `3000` | `3000` |
 | `NODE_ENV` | Entorno de ejecución (`development`, `production`, `test`). | No | `development` | `development` |
 | `LOG_LEVEL` | Nivel mínimo de logs estructurados (`debug`, `info`, `warn`, `error`). | No | `info` | `debug` |
@@ -87,8 +86,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 4. Ve a **Manage R2 API Tokens**.
 5. Crea un token con permisos **Object Read & Write**.
 6. Copia `Account ID`, `Access Key ID` y `Secret Access Key` al archivo `.env`.
-
-> ℹ️ Para `R2_PUBLIC_URL` puedes usar un dominio propio sobre R2 o una URL `r2.dev` pública, según tu estrategia de entrega de archivos.
 
 ## 7. 🚀 Arrancar el proyecto
 
@@ -280,7 +277,6 @@ curl -H "x-api-key: TU_API_KEY" "http://localhost:3000/api/v1/files?prefix=produ
 		"files": [
 			{
 				"key": "productos/demo/imagen.jpg",
-				"publicUrl": "https://pub-xxxxxxxx.r2.dev/productos/demo/imagen.jpg",
 				"size": 183452,
 				"lastModified": "2026-03-23T14:02:21.000Z"
 			}
@@ -318,7 +314,6 @@ curl -X POST \
 	"success": true,
 	"data": {
 		"key": "productos/demo/imagen.jpg",
-		"publicUrl": "https://pub-xxxxxxxx.r2.dev/productos/demo/imagen.jpg",
 		"size": 183452,
 		"contentType": "image/jpeg",
 		"uploadedAt": "2026-03-23T14:12:58.000Z"
@@ -552,8 +547,8 @@ Suites actuales:
 - `test/unit/R2Service.test.ts`
 	- Componente probado: `R2Service`, encargado del CRUD sobre Cloudflare R2 mediante AWS S3 SDK v3.
 	- Comportamiento crítico que protege: que el servicio sanee claves y prefijos, traduzca fallos esperados del SDK a errores de dominio y construya respuestas consistentes sin depender de R2 real.
-	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME` y `R2_PUBLIC_URL`.
-	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, ausencia de `R2_PUBLIC_URL`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, ausencia de URL pública, existencia positiva, inexistencia y sanitización en `fileExists`.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` mediante `sendMock` para simular respuestas del SDK y `@config/env.js` para controlar `R2_BUCKET_NAME`.
+	- Escenarios cubiertos: upload exitoso, sanitización de `key`, fallo de subida mapeado a `R2UploadError`, lectura exitosa, `R2NotFoundError` por `NoSuchKey` o `404`, propagación de errores inesperados, borrado exitoso, borrado de archivo inexistente, fallo de delete mapeado, listado con resultados, listado vacío, envío de `prefix`, descarte de objetos sin `Key`, sanitización de `prefix`, existencia positiva, inexistencia y sanitización en `fileExists`.
 	- Garantías de seguridad de la suite: evita regresiones en sanitización contra path traversal para `key` y `prefix`, y asegura que los errores expuestos al resto del servicio sigan siendo errores de dominio controlados en lugar de filtrar fallos crudos del SDK.
 	- Comando individual:
 
