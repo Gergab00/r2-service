@@ -15,7 +15,6 @@ import { R2Service } from '../../src/services/R2Service.js';
 const { mockEnv, sendMock } = vi.hoisted(() => ({
   mockEnv: {
     R2_BUCKET_NAME: 'test-bucket',
-    R2_PUBLIC_URL: 'https://cdn.example.com' as string | undefined,
   },
   sendMock: vi.fn(),
 }));
@@ -35,11 +34,10 @@ describe('R2Service > uploadFile', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnv.R2_PUBLIC_URL = 'https://cdn.example.com';
     service = new R2Service();
   });
 
-  it('debe retornar UploadResult con key, publicUrl, size, contentType y uploadedAt', async () => {
+  it('debe retornar UploadResult con key, size, contentType y uploadedAt', async () => {
     // Arrange
     sendMock.mockResolvedValueOnce({});
 
@@ -49,7 +47,6 @@ describe('R2Service > uploadFile', () => {
     // Assert
     expect(result).toMatchObject({
       key: 'folder/image.webp',
-      publicUrl: 'https://cdn.example.com/folder/image.webp',
       size: 10,
       contentType: 'image/webp',
       uploadedAt: expect.any(String),
@@ -78,17 +75,6 @@ describe('R2Service > uploadFile', () => {
     await expect(uploadPromise).rejects.toBeInstanceOf(R2UploadError);
   });
 
-  it('debe retornar publicUrl en null cuando R2_PUBLIC_URL no existe', async () => {
-    // Arrange
-    sendMock.mockResolvedValueOnce({});
-    mockEnv.R2_PUBLIC_URL = undefined;
-
-    // Act
-    const result = await service.uploadFile('folder/no-public-url.txt', Buffer.from('data'), 'text/plain');
-
-    // Assert
-    expect(result.publicUrl).toBeNull();
-  });
 });
 
 describe('R2Service > getFile', () => {
@@ -208,7 +194,6 @@ describe('R2Service > listFiles', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnv.R2_PUBLIC_URL = 'https://cdn.example.com';
     service = new R2Service();
   });
 
@@ -237,13 +222,11 @@ describe('R2Service > listFiles', () => {
       files: [
         {
           key: 'images/a.webp',
-          publicUrl: 'https://cdn.example.com/images/a.webp',
           size: 100,
           lastModified: '2026-03-23T10:00:00.000Z',
         },
         {
           key: 'images/b.webp',
-          publicUrl: 'https://cdn.example.com/images/b.webp',
           size: 200,
           lastModified: '2026-03-23T11:00:00.000Z',
         },
@@ -308,25 +291,6 @@ describe('R2Service > listFiles', () => {
     expect((sendMock.mock.calls[0]?.[0] as ListObjectsV2Command).input.Prefix).toBe('images/');
   });
 
-  it('debe retornar publicUrl null cuando no hay URL publica configurada', async () => {
-    // Arrange
-    sendMock.mockResolvedValueOnce({
-      Contents: [
-        {
-          Key: 'images/no-url.webp',
-          Size: 80,
-          LastModified: new Date('2026-03-23T14:00:00.000Z'),
-        },
-      ],
-    });
-    mockEnv.R2_PUBLIC_URL = undefined;
-
-    // Act
-    const result = await service.listFiles('images/');
-
-    // Assert
-    expect(result.files[0]?.publicUrl).toBeNull();
-  });
 });
 
 describe('R2Service > fileExists', () => {

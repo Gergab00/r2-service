@@ -10,7 +10,6 @@ const { getSignedUrlMock, mockEnv, sendMock } = vi.hoisted(() => ({
   getSignedUrlMock: vi.fn(),
   mockEnv: {
     R2_BUCKET_NAME: 'test-bucket',
-    R2_PUBLIC_URL: 'https://cdn.example.com' as string | undefined,
   },
   sendMock: vi.fn(),
 }));
