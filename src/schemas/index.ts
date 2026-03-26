@@ -12,3 +12,6 @@ export type { ListQueryInput } from './list.schema.js';
 
 export { importFromUrlBodySchema } from './import-from-url.schema.js';
 export type { ImportFromUrlBodyInput } from './import-from-url.schema.js';
+
+export { signedUrlBodySchema } from './signed-url.schema.js';
+export type { SignedUrlBodyInput } from './signed-url.schema.js';
