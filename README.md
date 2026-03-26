@@ -235,9 +235,12 @@ pnpm run release -- --release-as 2.0.0
 |:-------|:-----|:------------|:---------------|
 | `GET` | `/health` | Estado de disponibilidad del servicio. | No |
 | `GET` | `/api/v1/files` | Lista archivos en R2 (acepta `prefix`). | Sí (`x-api-key`) |
+| `POST` | `/api/v1/files/signed-url` | Genera una URL firmada temporal para descargar un archivo privado existente. | Sí (`x-api-key`) |
 | `POST` | `/api/v1/files/:key` | Sube un archivo binario a R2. | Sí (`x-api-key`) |
 | `GET` | `/api/v1/files/:key` | Descarga un archivo desde R2. | Sí (`x-api-key`) |
 | `DELETE` | `/api/v1/files/:key` | Elimina un archivo de R2. | Sí (`x-api-key`) |
+
+> ℹ️ `POST /api/v1/files/signed-url` esta pensado para buckets privados y entrega acceso temporal por archivo sin volver publico el bucket.
 
 ### GET /health
 
@@ -333,6 +336,52 @@ curl -X POST --data-binary "@./ejemplos/imagen.jpg" "http://localhost:3000/api/v
 	"code": "UNAUTHORIZED",
 	"message": "API Key inválida o ausente.",
 	"timestamp": "2026-03-23T14:25:00.000Z"
+}
+```
+
+### POST /api/v1/files/signed-url
+
+```bash
+curl -X POST \
+	-H "x-api-key: TU_API_KEY" \
+	-H "Content-Type: application/json" \
+	-d '{"key":"privados/demo/factura.pdf","expiresIn":900}' \
+	"http://localhost:3000/api/v1/files/signed-url"
+```
+
+```json
+{
+	"success": true,
+	"data": {
+		"signedUrl": "https://<account>.r2.cloudflarestorage.com/<bucket>/privados/demo/factura.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900",
+		"expiresIn": 900,
+		"expiresAt": "2026-03-26T18:00:00.000Z"
+	},
+	"timestamp": "2026-03-26T17:45:00.000Z"
+}
+```
+
+```bash
+curl -X POST \
+	-H "x-api-key: TU_API_KEY" \
+	-H "Content-Type: application/json" \
+	-d '{"key":"privados/demo/factura.pdf","expiresIn":10}' \
+	"http://localhost:3000/api/v1/files/signed-url"
+```
+
+```json
+{
+	"code": "VALIDATION_ERROR",
+	"message": "Error de validación",
+	"details": {
+		"fieldErrors": {
+			"expiresIn": [
+				"expiresIn debe ser mayor o igual a 60 segundos."
+			]
+		},
+		"formErrors": []
+	},
+	"timestamp": "2026-03-26T17:45:10.000Z"
 }
 ```
 
@@ -437,6 +486,7 @@ r2-service/
 │   │   ├── index.ts                   # Barrel de exportación de errores.
 │   │   ├── R2DeleteError.ts           # Error de fallo al eliminar en R2.
 │   │   ├── R2NotFoundError.ts         # Error cuando un objeto no existe en R2.
+│   │   ├── R2SignedUrlError.ts        # Error al generar URL firmada temporal de descarga.
 │   │   ├── R2UploadError.ts           # Error de fallo de subida a R2.
 │   │   ├── UnauthorizedError.ts       # Error por API Key ausente o inválida.
 │   │   └── ValidationError.ts         # Error de validación de entradas.
@@ -456,6 +506,7 @@ r2-service/
 │   │   ├── download.schema.ts         # Esquema Zod para GET /files/:key.
 │   │   ├── index.ts                   # Barrel de esquemas Zod.
 │   │   ├── list.schema.ts             # Esquema Zod para query de listado.
+│   │   ├── signed-url.schema.ts       # Esquema Zod para POST /files/signed-url.
 │   │   └── upload.schema.ts           # Esquema Zod para upload y validación de key.
 │   └── services/
 │       └── R2Service.ts               # Servicio de dominio para operaciones en R2.
@@ -463,10 +514,12 @@ r2-service/
 		├── config/                        # Espacio reservado para tests de configuración.
 		├── errors/                        # Espacio reservado para tests de errores.
 		├── integration/                   # Tests de integración HTTP sobre el pipeline real de Hono.
-		│   	└── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
+		│   	├── import-from-url.routes.test.ts # Contrato HTTP del endpoint import-from-url con app.request.
+		│   	└── signed-url.routes.test.ts # Contrato HTTP del endpoint de URL firmada temporal.
 		└── unit/
 				├── error.middleware.test.ts     # Tests del middleware de errores y serialización de fallos.
 				├── logger.middleware.test.ts    # Tests de logging request/response con requestId.
+				├── R2Service.signed-url.test.ts # Tests unitarios de generación de URL firmada temporal.
 				├── R2Service.test.ts          # Tests unitarios de R2Service con SDK mockeado.
 				└── RemoteFileFetcherService.test.ts # Tests unitarios del descargador remoto con DNS/fetch mockeados.
 ```
@@ -506,6 +559,18 @@ Suites actuales:
 
 ```bash
 pnpm vitest run test/unit/R2Service.test.ts
+```
+
+- `test/unit/R2Service.signed-url.test.ts`
+	- Componente probado: método `getDownloadSignedUrl` en `R2Service`, responsable de generar URLs firmadas temporales para objetos privados.
+	- Comportamiento crítico que protege: que solo se firmen objetos existentes, que la key se sanitice antes de firmar y que los fallos del presigner se traduzcan a error de dominio controlado.
+	- Dependencias aisladas con mocks: `@config/r2Client.js` para `HeadObject`, `@config/env.js` para bucket y `@aws-sdk/s3-request-presigner` para evitar firmas reales.
+	- Escenarios cubiertos: firma exitosa, sanitización de key, archivo inexistente y fallo del presigner mapeado a `R2SignedUrlError`.
+	- Garantías de seguridad de la suite: evita regresiones que permitan firmar rutas no sanitizadas o exponer errores crudos del SDK/presigner en la capa superior.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/unit/R2Service.signed-url.test.ts
 ```
 
 - `test/unit/logger.middleware.test.ts`
@@ -554,6 +619,18 @@ pnpm vitest run test/unit/RemoteFileFetcherService.test.ts
 
 ```bash
 pnpm vitest run test/integration/import-from-url.routes.test.ts
+```
+
+- `test/integration/signed-url.routes.test.ts`
+	- Componente probado: contrato HTTP de `POST /api/v1/files/signed-url` sobre `app` real de Hono con `authMiddleware` y `errorMiddleware`.
+	- Comportamiento crítico que protege: respuesta homogénea en éxito (`200`) y errores (`400`, `401`, `404`) dentro del pipeline real.
+	- Dependencias aisladas con mocks: `@config/env.js` para configuración de arranque y `r2Service.getDownloadSignedUrl` para evitar dependencia de R2 real.
+	- Escenarios cubiertos: generación exitosa, ausencia de `x-api-key`, `expiresIn` fuera de rango y archivo inexistente.
+	- Garantías de seguridad de la suite: valida que la autenticación ocurra antes de tocar la lógica de firma y que inputs inválidos no lleguen a la capa de servicio.
+	- Comando individual:
+
+```bash
+pnpm vitest run test/integration/signed-url.routes.test.ts
 ```
 
 - `test/config/`: carpeta preparada para futuras pruebas de validación y configuración.
