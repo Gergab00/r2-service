@@ -66,6 +66,11 @@ Configura el archivo `.env` usando como base `.env.example`.
 | `REMOTE_FETCH_TIMEOUT_MS` | Tiempo máximo en ms para la petición HTTP remota. | Sí | No | `10000` (10 s) |
 | `REMOTE_FETCH_MAX_REDIRECTS` | Número máximo de redirecciones HTTP permitidas. | Sí | No | `3` |
 
+Diagnóstico de descarga remota:
+
+- En `NODE_ENV=development` y `NODE_ENV=test`, el servicio emite logs de diagnóstico del flujo `RemoteFileFetcherService` para resolución DNS, preparación de request, invocación de `lookup` pinneado y errores de request remota.
+- En `NODE_ENV=production`, esos logs de diagnóstico se silencian y solo se conservan los errores operativos normales del servicio.
+
 Genera una API Key segura con Node.js:
 
 ```bash
@@ -598,6 +603,7 @@ docker-compose up -d
 | `404` en `/docs` | `NODE_ENV=production`; docs deshabilitado. | Cambia a `NODE_ENV=development` para entorno local. |
 | Error de conexión a R2 | Credenciales incorrectas o bucket inexistente. | Revisa `R2_ACCOUNT_ID`, claves R2 y existencia real de `R2_BUCKET_NAME`. |
 | `tsx` no encuentra `.env` | Falta `import "dotenv/config"` en `src/index.ts`. | Asegura que la importación exista al inicio del entrypoint. |
+| Error `ERR_INVALID_IP_ADDRESS` o fallos opacos en importación remota | El runtime puede invocar el `lookup` interno esperando múltiples direcciones o la IP pinneada resultó inválida. | Revisa los logs `remote_fetch.dns_resolved`, `remote_fetch.request_prepared`, `remote_fetch.lookup_invoked` y `remote_fetch.request_error` en entorno no productivo para confirmar la IP/familia pinneada y el modo de resolución usado por Node. |
 
 ## 17. Contribución
 

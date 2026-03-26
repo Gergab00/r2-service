@@ -41,6 +41,7 @@ export class RemoteFileFetcherService {
   private readonly maxBytes: number;
   private readonly timeoutMs: number;
   private readonly maxRedirects: number;
+  private readonly debugEnabled: boolean;
 
   public constructor() {
     this.allowedHosts = this.parseCsvEnv(env.REMOTE_FETCH_ALLOWED_HOSTS);
@@ -48,6 +49,7 @@ export class RemoteFileFetcherService {
     this.maxBytes = env.REMOTE_FETCH_MAX_BYTES;
     this.timeoutMs = env.REMOTE_FETCH_TIMEOUT_MS;
     this.maxRedirects = env.REMOTE_FETCH_MAX_REDIRECTS;
+    this.debugEnabled = env.NODE_ENV !== 'production';
   }
 
   /**
@@ -154,6 +156,11 @@ export class RemoteFileFetcherService {
       throw new RemoteFetchDownloadError(hostname, error);
     }
 
+    this.logDebug('remote_fetch.dns_resolved', {
+      hostname,
+      addresses,
+    });
+
     if (addresses.length === 0) {
       throw new RemoteFetchDownloadError(
         hostname,
@@ -170,9 +177,21 @@ export class RemoteFileFetcherService {
     // Devolvemos la primera dirección validada para anclar la conexión TCP/TLS,
     // evitando que una segunda resolución DNS pueda apuntar a una IP diferente
     // (ataque de DNS rebinding).
-    const first = addresses[0]!;
+    const first = addresses[0];
 
-    return { address: first.address, family: first.family as 4 | 6 };
+    if (
+      first === undefined ||
+      typeof first.address !== 'string' ||
+      first.address.trim() === '' ||
+      (first.family !== 4 && first.family !== 6)
+    ) {
+      throw new RemoteFetchDownloadError(
+        hostname,
+        new Error('La resolución DNS devolvió una dirección inválida para el pinning.'),
+      );
+    }
+
+    return { address: first.address, family: first.family };
   }
 
   /**
@@ -193,6 +212,15 @@ export class RemoteFileFetcherService {
       const defaultPort = isHttps ? 443 : 80;
       const port = url.port !== '' ? Number(url.port) : defaultPort;
 
+      this.logDebug('remote_fetch.request_prepared', {
+        url: url.toString(),
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port,
+        pinnedAddress: pinned.address,
+        pinnedFamily: pinned.family,
+      });
+
       const options: http.RequestOptions = {
         hostname: url.hostname,
         port,
@@ -201,8 +229,53 @@ export class RemoteFileFetcherService {
         // Ancla la conexión TCP/TLS a la IP validada, sin nueva resolución DNS.
         // hostname sigue siendo el dominio original → Host header y TLS SNI correctos.
         // _hostname se ignora intencionalmente: siempre devolvemos la IP ya validada.
-        lookup: (_hostname, _opts, cb) => {
-          cb(null, pinned.address, pinned.family);
+        lookup: (_hostname, options, callback) => {
+          this.logDebug('remote_fetch.lookup_invoked', {
+            requestHostname: url.hostname,
+            pinnedAddress: pinned.address,
+            pinnedFamily: pinned.family,
+            lookupOptions: {
+              all:
+                typeof options === 'object' && options !== null && 'all' in options
+                  ? options.all
+                  : undefined,
+              family:
+                typeof options === 'object' && options !== null && 'family' in options
+                  ? options.family
+                  : undefined,
+              hints:
+                typeof options === 'object' && options !== null && 'hints' in options
+                  ? options.hints
+                  : undefined,
+            },
+          });
+
+          if (!pinned.address || (pinned.family !== 4 && pinned.family !== 6)) {
+            callback(
+              new Error(
+                `Pinned address inválida. address='${String(pinned.address)}', family='${String(pinned.family)}'`,
+              ),
+              '',
+            );
+            return;
+          }
+
+          if (
+            typeof options === 'object' &&
+            options !== null &&
+            'all' in options &&
+            options.all === true
+          ) {
+            callback(null, [
+              {
+                address: pinned.address,
+                family: pinned.family,
+              },
+            ]);
+            return;
+          }
+
+          callback(null, pinned.address, pinned.family);
         },
         signal: AbortSignal.timeout(this.timeoutMs),
       };
@@ -240,6 +313,17 @@ export class RemoteFileFetcherService {
       });
 
       req.once('error', (err: Error) => {
+        this.logError('remote_fetch.request_error', {
+          url: url.toString(),
+          pinnedAddress: pinned.address,
+          pinnedFamily: pinned.family,
+          error: {
+            name: err.name,
+            message: err.message,
+            code: 'code' in err ? (err as NodeJS.ErrnoException).code : undefined,
+            stack: err.stack,
+          },
+        });
         reject(new RemoteFetchDownloadError(url.toString(), err));
       });
 
@@ -411,6 +495,32 @@ export class RemoteFileFetcherService {
     }
 
     return false;
+  }
+
+  private logDebug(message: string, attributes: Record<string, unknown>): void {
+    if (!this.debugEnabled) {
+      return;
+    }
+
+    console.log(
+      JSON.stringify({
+        level: 'debug',
+        message,
+        attributes,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+  }
+
+  private logError(message: string, attributes: Record<string, unknown>): void {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message,
+        attributes,
+        timestamp: new Date().toISOString(),
+      }),
+    );
   }
 }
 
