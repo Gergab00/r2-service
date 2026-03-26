@@ -7,10 +7,11 @@ import {
   type S3ServiceException,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { env } from '@config/env.js';
 import { r2Client } from '@config/r2Client.js';
-import { R2DeleteError, R2NotFoundError, R2UploadError } from '@errors/index.js';
+import { R2DeleteError, R2NotFoundError, R2SignedUrlError, R2UploadError } from '@errors/index.js';
 
 export type UploadResult = {
   key: string;
@@ -35,6 +36,12 @@ export type FileItem = {
 export type ListResult = {
   files: FileItem[];
   count: number;
+};
+
+export type SignedUrlResult = {
+  signedUrl: string;
+  expiresIn: number;
+  expiresAt: string;
 };
 
 /**
@@ -172,6 +179,43 @@ export class R2Service {
       files,
       count: files.length,
     };
+  }
+
+  /**
+   * Genera una URL firmada temporal para descargar un archivo existente en R2.
+   *
+   * @param key - Ruta o identificador del objeto dentro del bucket.
+   * @param expiresIn - Duracion de la URL firmada en segundos.
+   * @returns URL firmada junto con metadatos de expiracion.
+   * @throws {R2NotFoundError} Si el archivo solicitado no existe en R2.
+   * @throws {R2SignedUrlError} Si la firma temporal no puede generarse.
+   */
+  public async getDownloadSignedUrl(key: string, expiresIn: number): Promise<SignedUrlResult> {
+    const safeKey: string = this.sanitizeKey(key);
+
+    if (!(await this.fileExists(safeKey))) {
+      throw new R2NotFoundError(safeKey);
+    }
+
+    try {
+      const signedUrl: string = await getSignedUrl(
+        r2Client,
+        new GetObjectCommand({
+          Bucket: env.R2_BUCKET_NAME,
+          Key: safeKey,
+        }),
+        { expiresIn },
+      );
+      const expiresAt: string = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+      return {
+        signedUrl,
+        expiresIn,
+        expiresAt,
+      };
+    } catch (error: unknown) {
+      throw new R2SignedUrlError(safeKey, error);
+    }
   }
 
   /**
