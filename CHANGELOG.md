@@ -1,3 +1,24 @@
+# [1.4.0](https://github.com/Gergab00/r2-service/compare/v1.3.0...v1.4.0) (2026-03-26)
+
+
+### Features
+
+* **config:** eliminar R2_PUBLIC_URL del archivo de ejemplo de configuración ([b7094b5](https://github.com/Gergab00/r2-service/commit/b7094b504602bccfa77445ea23f901c52c8f0bd5))
+* **config:** eliminar R2_PUBLIC_URL del esquema de validación de entorno ([3ea437a](https://github.com/Gergab00/r2-service/commit/3ea437a833fa2f05a75359ae7ace0cd4cff8d26a))
+* **config:** eliminar R2_PUBLIC_URL del esquema de validación de entorno ([a60bd92](https://github.com/Gergab00/r2-service/commit/a60bd92cbf00db86b286ac91eb2980e2b81273cf))
+* **docs:** actualizar README para incluir endpoint de generación de URL firmada temporal ([b3d728f](https://github.com/Gergab00/r2-service/commit/b3d728f44276528c659e7f226cbfde0d811160d8))
+* **docs:** eliminar propiedad R2_PUBLIC_URL de la documentación y ejemplos ([00cda30](https://github.com/Gergab00/r2-service/commit/00cda308f62c6f7d7556456878a4e25cec0a070a))
+* **errors:** agregar R2SignedUrlError para manejo de errores de URL firmadas ([06b9746](https://github.com/Gergab00/r2-service/commit/06b9746e392c51541ae297d46778ba5ef1171331))
+* **openapi:** agregar esquemas y rutas para generación de URL firmada temporal ([5bb202b](https://github.com/Gergab00/r2-service/commit/5bb202bcbf30a06d091f21bf00781cbd2642f49c))
+* **openapi:** eliminar propiedad publicUrl de los componentes de OpenAPI ([715212b](https://github.com/Gergab00/r2-service/commit/715212b8d4dcacb02a86738f4f602cebc10a7f71))
+* **R2Service:** eliminar propiedad publicUrl de los resultados de carga y listado de archivos ([b2a6bef](https://github.com/Gergab00/r2-service/commit/b2a6beff0a9d68ebcbe16cdb77d14989967d1e2f))
+* **schemas:** agregar esquema y tipo para URL firmada temporal ([c1ce4a6](https://github.com/Gergab00/r2-service/commit/c1ce4a6bcdc2c56b49fe6347b80b1ce441a49be3))
+* **signed-url:** agregar método para generar URL firmada temporal para descarga de archivos ([c2d0c08](https://github.com/Gergab00/r2-service/commit/c2d0c085581f7e537be0e6d4d1052777aa5e4c74))
+* **signed-url:** implementar handler para generar URL firmada temporal ([905162f](https://github.com/Gergab00/r2-service/commit/905162f96fb7b5ebddc3165a74bc3627ef51133d))
+* **tests:** agregar pruebas para el servicio R2 y la generación de URL firmada temporal ([d217531](https://github.com/Gergab00/r2-service/commit/d2175310afd81cc0b5eea3dbddca15d181fd063f))
+* **tests:** eliminar propiedad R2_PUBLIC_URL de las pruebas de importación y firma de URL ([0c8a058](https://github.com/Gergab00/r2-service/commit/0c8a05891e143de7c689bfe149d0427974205957))
+* **tests:** eliminar propiedad R2_PUBLIC_URL de las pruebas de R2Service ([065f1d8](https://github.com/Gergab00/r2-service/commit/065f1d8a5430d93eabf7213207cac318d6d27bf0))
+
 # [1.3.0](https://github.com/Gergab00/r2-service/compare/v1.2.0...v1.3.0) (2026-03-26)
 
 
